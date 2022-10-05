@@ -125,6 +125,16 @@ class TACGen(Visitor[FuncVisitor, None]):
             node.BinaryOp.Mul: tacop.BinaryOp.MUL,
             node.BinaryOp.Div: tacop.BinaryOp.DIV,
             node.BinaryOp.Mod: tacop.BinaryOp.REM,
+            # Comparison
+            node.BinaryOp.LT: tacop.BinaryOp.SLT,
+            node.BinaryOp.LE: tacop.BinaryOp.LEQ,
+            node.BinaryOp.GE: tacop.BinaryOp.GEQ,
+            node.BinaryOp.GT: tacop.BinaryOp.SGT,
+            node.BinaryOp.EQ: tacop.BinaryOp.EQU,
+            node.BinaryOp.NE: tacop.BinaryOp.NEQ,
+            # Logic
+            node.BinaryOp.LogicAnd: tacop.BinaryOp.AND,
+            node.BinaryOp.LogicOr: tacop.BinaryOp.OR,
         }[expr.op]
         expr.setattr(
             "val", mv.visitBinary(op, expr.lhs.getattr("val"), expr.rhs.getattr("val"))
