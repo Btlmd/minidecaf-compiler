@@ -109,6 +109,8 @@ class TACGen(Visitor[FuncVisitor, None]):
 
         op = {
             node.UnaryOp.Neg: tacop.UnaryOp.NEG,
+            node.UnaryOp.BitNot: tacop.UnaryOp.NOT,
+            node.UnaryOp.LogicNot: tacop.UnaryOp.SEQZ,
             # You can add unary operations here.
         }[expr.op]
         expr.setattr("val", mv.visitUnary(op, expr.operand.getattr("val")))
@@ -119,7 +121,20 @@ class TACGen(Visitor[FuncVisitor, None]):
 
         op = {
             node.BinaryOp.Add: tacop.BinaryOp.ADD,
-            # You can add binary operations here.
+            node.BinaryOp.Sub: tacop.BinaryOp.SUB,
+            node.BinaryOp.Mul: tacop.BinaryOp.MUL,
+            node.BinaryOp.Div: tacop.BinaryOp.DIV,
+            node.BinaryOp.Mod: tacop.BinaryOp.REM,
+            # Comparison
+            node.BinaryOp.LT: tacop.BinaryOp.SLT,
+            node.BinaryOp.LE: tacop.BinaryOp.LEQ,
+            node.BinaryOp.GE: tacop.BinaryOp.GEQ,
+            node.BinaryOp.GT: tacop.BinaryOp.SGT,
+            node.BinaryOp.EQ: tacop.BinaryOp.EQU,
+            node.BinaryOp.NE: tacop.BinaryOp.NEQ,
+            # Logic
+            node.BinaryOp.LogicAnd: tacop.BinaryOp.AND,
+            node.BinaryOp.LogicOr: tacop.BinaryOp.OR,
         }[expr.op]
         expr.setattr(
             "val", mv.visitBinary(op, expr.lhs.getattr("val"), expr.rhs.getattr("val"))
