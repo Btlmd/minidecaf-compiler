@@ -4,3 +4,4 @@ frontend/parser/parsetab.py
 frontend/parser/parser.out
 *.sh
 *.s
+test.*
