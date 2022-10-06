@@ -106,6 +106,42 @@
 
 ### Step-6
 
+这一步需要照着对 `if` 语句的支持，完成对 `ternary` 的支持
+
+- 首先需要在构造符号表时访问 `ConditionalExpression` 这里由于条件表达式必定有 `otherwise` 语句，因此直接全部访问即可
+
+```python
+    def visitCondExpr(self, expr: ConditionExpression, ctx: ScopeStack) -> None:
+        expr.cond.accept(self, ctx)
+        expr.then.accept(self, ctx)
+        expr.otherwise.accept(self, ctx)
+```
+
+- 在转换为 TAC 的阶段，同样按照对 `if` 语句的支持完成代码。与 `if` 不同的是，条件表达式需要一个值，此时可以再额外申请一个临时变量 `exprValue` 储存该表达式的值。
+
+```python
+    def visitCondExpr(self, expr: ConditionExpression, mv: FuncVisitor) -> None:
+        expr.cond.accept(self, mv)
+        skipLabel = mv.freshLabel()
+        exitLabel = mv.freshLabel()
+        exprValue = mv.freshTemp()
+
+        mv.visitCondBranch(
+            tacop.CondBranchOp.BEQ, expr.cond.getattr("val"), skipLabel
+        )
+        expr.then.accept(self, mv)
+        mv.visitAssignment(exprValue, expr.then.getattr("val"))
+        mv.visitBranch(exitLabel)
+        mv.visitLabel(skipLabel)
+        expr.otherwise.accept(self, mv)
+        mv.visitAssignment(exprValue, expr.otherwise.getattr("val"))
+        mv.visitLabel(exitLabel)
+
+        expr.setattr('val', exprValue)
+```
+
+
+
 ## 思考题
 
 ### Step-5
@@ -127,3 +163,36 @@ addi sp, sp, -16
 
 ### Step-6
 
+1. `Python` 编译框架中，`statement` 分为 `statement_matched` 与 `statement_unmatched` 。对于 `if-else` 组合来说，`if` 与 `else` 之间必须为 `statement_matched` 。这样悬吊的 `else` 只能与最近的 `if` 结合，构成 `statement_matched` 后再与外部结合；而假设悬吊 `else ` 与不相邻的 `if` 结合，则会导致 `if-else` 之间出现 `statement_unmatched` ，矛盾。
+
+2. 可以修改生成 TAC 的代码中访问条件表达式的部分。
+
+   - 首先顺序访问 `cond` , `then` 和 `otherwise` 
+
+       ```python
+       expr.cond.accept(self, mv)
+       expr.then.accept(self, mv)
+       expr.otherwise.accept(self, mv)
+       ```
+
+   - 然后根据条件进行跳转，给表达式赋值
+
+       ```python
+       skipLabel = mv.freshLabel()
+       exitLabel = mv.freshLabel()
+       exprValue = mv.freshTemp()
+       
+       mv.visitCondBranch(
+           tacop.CondBranchOp.BEQ, expr.cond.getattr("val"), skipLabel
+       )
+       mv.visitAssignment(exprValue, expr.then.getattr("val"))
+       mv.visitBranch(exitLabel)
+       
+       mv.visitLabel(skipLabel)
+       mv.visitAssignment(exprValue, expr.otherwise.getattr("val"))
+       mv.visitLabel(exitLabel)
+       
+       expr.setattr('val', exprValue)
+       ```
+
+       
