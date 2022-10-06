@@ -48,7 +48,7 @@ class TACGen(Visitor[FuncVisitor, None]):
         """
         1. Set the 'val' attribute of ident as the temp variable of the 'symbol' attribute of ident.
         """
-        pass
+        ident.setattr('val', ident.getattr('symbol').temp)
 
     def visitDeclaration(self, decl: Declaration, mv: FuncVisitor) -> None:
         """
@@ -56,7 +56,10 @@ class TACGen(Visitor[FuncVisitor, None]):
         2. Use mv.freshTemp to get a new temp variable for this symbol.
         3. If the declaration has an initial value, use mv.visitAssignment to set it.
         """
-        pass
+        decl.getattr('symbol').temp = mv.freshTemp()
+        if decl.init_expr is not NULL:
+            decl.init_expr.accept(self, mv)
+            mv.visitAssignment(decl.getattr('symbol').temp, decl.init_expr.getattr('val'))
 
     def visitAssignment(self, expr: Assignment, mv: FuncVisitor) -> None:
         """
@@ -64,7 +67,15 @@ class TACGen(Visitor[FuncVisitor, None]):
         2. Use mv.visitAssignment to emit an assignment instruction.
         3. Set the 'val' attribute of expr as the value of assignment instruction.
         """
-        pass
+        expr.rhs.accept(self, mv)
+        expr.lhs.accept(self, mv)
+        expr.setattr(
+            'val',
+            mv.visitAssignment(
+                expr.lhs.getattr('val'),
+                expr.rhs.getattr('val'),
+            )
+        )
 
     def visitIf(self, stmt: If, mv: FuncVisitor) -> None:
         stmt.cond.accept(self, mv)

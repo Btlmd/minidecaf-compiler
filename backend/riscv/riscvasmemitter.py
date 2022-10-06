@@ -59,6 +59,9 @@ class RiscvAsmEmitter(AsmEmitter):
             self.entry = entry
             self.seq = []
 
+        def visitAssign(self, instr: Assign) -> None:
+            self.seq.append(Riscv.Move(instr.dst, instr.src))
+
         # in step11, you need to think about how to deal with globalTemp in almost all the visit functions. 
         def visitReturn(self, instr: Return) -> None:
             if instr.value is not None:

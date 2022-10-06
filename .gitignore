@@ -5,3 +5,4 @@ frontend/parser/parser.out
 *.sh
 *.s
 test.*
+*.diff
