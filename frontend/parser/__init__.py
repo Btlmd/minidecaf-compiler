@@ -4,7 +4,7 @@ from frontend.ast.tree import Program
 from frontend.lexer import Lexer
 from utils.error import DecafSyntaxError
 
-from .ply_parser import parser as _parser
+from .my_parser import parser as _parser
 
 
 class Parser(Protocol):
