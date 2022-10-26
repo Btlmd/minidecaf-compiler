@@ -18,6 +18,9 @@ reserved = {
     "else": "Else",
     "while": "While",
     "break": "Break",
+    "for": "For",
+    "do": "Do",
+    "continue": "Continue"
 }
 
 t_Semi = ";"

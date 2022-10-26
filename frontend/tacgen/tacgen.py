@@ -175,3 +175,53 @@ class TACGen(Visitor[FuncVisitor, None]):
 
     def visitIntLiteral(self, expr: IntLiteral, mv: FuncVisitor) -> None:
         expr.setattr("val", mv.visitLoad(expr.value))
+
+    def visitContinue(self, stmt: Continue, mv: FuncVisitor) -> None:
+        mv.visitBranch(mv.getContinueLabel())
+
+    def visitFor(self, stmt: For, mv: FuncVisitor) -> None:
+        beginLabel = mv.freshLabel()
+        loopLabel = mv.freshLabel()
+        breakLabel = mv.freshLabel()
+
+        # init
+        stmt.init.accept(self, mv)
+
+        # begin loop
+        mv.openLoop(breakLabel, loopLabel)
+        mv.visitLabel(beginLabel)
+
+        # cond, can be NULL
+        stmt.cond.accept(self, mv)
+        if stmt.cond.getattr("val") is not None:
+            mv.visitCondBranch(tacop.CondBranchOp.BEQ, stmt.cond.getattr("val"), breakLabel)
+
+        # body
+        stmt.body.accept(self, mv)
+
+        # update
+        mv.visitLabel(loopLabel)
+        stmt.update.accept(self, mv)
+        mv.visitBranch(beginLabel)
+
+        # end
+        mv.visitLabel(breakLabel)
+        mv.closeLoop()
+
+    def visitDoWhile(self, stmt: DoWhile, mv: FuncVisitor) -> None:
+        beginLabel = mv.freshLabel()
+        loopLabel = mv.freshLabel()
+        breakLabel = mv.freshLabel()
+        bodyLabel = mv.freshLabel()
+
+        mv.openLoop(breakLabel, loopLabel)
+        mv.visitBranch(bodyLabel)  # skip the first condition check
+        mv.visitLabel(beginLabel)
+        stmt.cond.accept(self, mv)
+        mv.visitCondBranch(tacop.CondBranchOp.BEQ, stmt.cond.getattr("val"), breakLabel)
+        mv.visitLabel(bodyLabel)
+        stmt.body.accept(self, mv)
+        mv.visitLabel(loopLabel)
+        mv.visitBranch(beginLabel)
+        mv.visitLabel(breakLabel)
+        mv.closeLoop()

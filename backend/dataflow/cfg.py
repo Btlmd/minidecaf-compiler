@@ -1,5 +1,5 @@
 from backend.dataflow.basicblock import BasicBlock
-
+from queue import Queue
 """
 CFG: Control Flow Graph
 
@@ -23,6 +23,16 @@ class CFG:
             self.links[u][1].add(v)
             self.links[v][0].add(u)
 
+        # search the graph and determine nodes reachable from the root
+        self.reachable = set()
+        q = Queue()
+        q.put(0)
+        while not q.empty():
+            visited_node = q.get()
+            self.reachable.add(visited_node)
+            for n in self.links[visited_node][1].difference(self.reachable):
+                q.put(n)
+
     def getBlock(self, id):
         return self.nodes[id]
 
@@ -39,4 +49,5 @@ class CFG:
         return len(self.links[id][1])
 
     def iterator(self):
-        return iter(self.nodes)
+        for n in self.reachable:
+            yield self.nodes[n]

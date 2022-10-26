@@ -2,7 +2,7 @@ from typing import Optional
 
 from frontend.symbol.symbol import Symbol
 
-from .scope import Scope
+from .scope import Scope, ScopeKind
 
 """
 A scope stack is a symbol table, which is organized as a stack of scopes.
@@ -32,6 +32,7 @@ class ScopeStack:
         self.scopeDepth = scopeDepth
 
         self.loopDepth = 0
+        self.close_stack = []
 
     # To get the current scope (stack top).
     def currentScope(self) -> Scope:
@@ -82,3 +83,28 @@ class ScopeStack:
 
     def inLoop(self) -> None:
         return self.loopDepth > 0
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close_stack.pop()()
+
+    def local(self):
+        self.open(Scope(ScopeKind.LOCAL))
+        self.close_stack += [self.close]
+        return self
+
+    def global_(self):
+        self.open(Scope(ScopeKind.GLOBAL))
+        self.close_stack += [self.close]
+        return self
+
+    def loop(self):
+        self.openLoop()
+        self.close_stack += [self.closeLoop]
+        return self
+
+    def __del__(self):
+        csl = len(self.close_stack)
+        assert csl == 0, f"Improper usage of context, remaining size {csl}"

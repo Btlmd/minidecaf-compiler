@@ -43,8 +43,9 @@ class Namer(Visitor[ScopeStack, None]):
         func.body.accept(self, ctx)
 
     def visitBlock(self, block: Block, ctx: ScopeStack) -> None:
-        for child in block:
-            child.accept(self, ctx)
+        with ctx.local():
+            for child in block:
+                child.accept(self, ctx)
 
     def visitReturn(self, stmt: Return, ctx: ScopeStack) -> None:
         stmt.expr.accept(self, ctx)
@@ -58,6 +59,14 @@ class Namer(Visitor[ScopeStack, None]):
         4. Visit body of the loop.
         5. Close the loop and the local scope.
         """
+
+    def visitFor(self, stmt: For, ctx: ScopeStack) -> None:
+        with ctx.local():
+            stmt.init.accept(self, ctx)
+            stmt.cond.accept(self, ctx)
+            stmt.update.accept(self, ctx)
+            with ctx.loop():
+                stmt.body.accept(self, ctx)
 
     def visitIf(self, stmt: If, ctx: ScopeStack) -> None:
         stmt.cond.accept(self, ctx)
@@ -81,15 +90,21 @@ class Namer(Visitor[ScopeStack, None]):
         3. Close the loop.
         4. Visit the condition of the loop.
         """
+    def visitDoWhile(self, stmt: DoWhile, ctx: ScopeStack) -> None:
+        with ctx.loop():
+            stmt.body.accept(self, ctx)
+        stmt.cond.accept(self, ctx)
 
     def visitBreak(self, stmt: Break, ctx: ScopeStack) -> None:
         if not ctx.inLoop():
             raise DecafBreakOutsideLoopError()
 
-        # def visitContinue(self, stmt: Continue, ctx: ScopeStack) -> None:
+    def visitContinue(self, stmt: Continue, ctx: ScopeStack) -> None:
         """
         1. Refer to the implementation of visitBreak.
         """
+        if not ctx.inLoop():
+            raise DecafBreakOutsideLoopError()
 
     def visitDeclaration(self, decl: Declaration, ctx: ScopeStack) -> None:
         """

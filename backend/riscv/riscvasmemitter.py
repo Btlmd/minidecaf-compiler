@@ -157,7 +157,7 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
 
     # load some temp from stack
     # usually happen when using a temp which is stored to stack before
-    # in step9, you need to think about the fuction parameters here
+    # in step9, you need to think about the function parameters here
     def emitLoadFromStack(self, dst: Reg, src: Temp):
         if src.index not in self.offsets:
             raise IllegalArgumentException()
