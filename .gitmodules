@@ -1,3 +1,0 @@
-[submodule "minidecaf-tests"]
-	path = minidecaf-tests
-	url = git@git.tsinghua.edu.cn:compiler-22/minidecaf-tests.git
