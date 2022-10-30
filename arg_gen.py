@@ -7,7 +7,8 @@ int %s(%s){
 
 int main() {
     %s;
-    return %s(%s);
+    int x = %s(%s) * %s(%s);
+    return x * %s(%s);
 }
 """
 
@@ -23,7 +24,11 @@ print(TEMPLATE % (
     values,
     inits,
     name,
-    calls
+    calls,
+    name,
+    calls,
+    name,
+    calls,
 ))
 
 

@@ -189,3 +189,16 @@ class Riscv:
 
         def __str__(self) -> str:
             return f"call {self.label.name}"
+
+    LoadWord = TACInstr.fromNative(NativeLoadWord)
+    StoreWord = TACInstr.fromNative(NativeStoreWord)
+
+    class LoadLabel(TACInstr):
+        def __init__(self, dst: Temp, symbol_str: str) -> None:
+            super().__init__(InstrKind.SEQ, [dst], [])
+            self.symbol_str = symbol_str
+
+        def __str__(self) -> str:
+            return "la " + Riscv.FMT2.format(
+                str(self.dsts[0]), self.symbol_str
+            )

@@ -34,7 +34,13 @@ class TACVisitor:
    def visitMark(self, instr: Mark) -> None:
         self.visitOther(instr)
 
-   def visitParam(self, instr: Param) -> None:
+   def visitLoadWord(self, instr: LoadWord) -> None:
+       self.visitOther(instr)
+
+   def visitStoreWord(self, instr: StoreWord) -> None:
+       self.visitOther(instr)
+
+   def visitLoadSymbolAddress(self, instr: LoadSymbolAddress) -> None:
        self.visitOther(instr)
 
    def visitCall(self, instr: Call) -> None:

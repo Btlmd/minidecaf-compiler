@@ -1,6 +1,7 @@
 from enum import Enum, auto, unique
 from typing import Any, Optional, Union, List
 
+# from frontend.symbol.varsymbol import VarSymbol
 from utils.label.label import Label
 from utils.tac.nativeinstr import NativeInstr
 from utils.tac.reg import Reg
@@ -9,8 +10,13 @@ from .tacop import *
 from .tacvisitor import TACVisitor
 from .temp import Temp
 
-
 class TACInstr:
+    @classmethod
+    def fromNative(cls: type, Native: type):
+        class _TACInstr(Native, cls):
+            pass
+        return _TACInstr
+
     def __init__(
         self,
         kind: InstrKind,
@@ -212,3 +218,38 @@ class Call(TACInstr):
 
     def __str__(self) -> str:
         return f"{self.dsts[0]} = CALL {self.label.name} ({self.srcs})"
+
+
+class LoadSymbolAddress(TACInstr):
+    def __init__(self, global_sym, dst: Temp):
+        super(LoadSymbolAddress, self).__init__(InstrKind.SEQ, [dst], [])
+        self.symbol = global_sym
+
+    def accept(self, v: TACVisitor) -> None:
+        return v.visitLoadSymbolAddress(self)
+
+    def __str__(self) -> str:
+        return f"{self.dsts[0]} = LoadSymbolAddress {self.symbol}"
+
+class LoadWord(TACInstr):
+    def __init__(self, dst: Temp, base: Temp, offset: int):
+        super(LoadWord, self).__init__(InstrKind.SEQ, [dst], [base])
+        self.offset = offset
+
+    def accept(self, v: TACVisitor) -> None:
+        return v.visitLoadWord(self)
+
+    def __str__(self) -> str:
+        return f"LW {self.dsts[0]} {self.offset}({self.srcs[0]})"
+
+
+class StoreWord(TACInstr):
+    def __init__(self, src: Temp, base: Temp, offset: int):
+        super(StoreWord, self).__init__(InstrKind.SEQ, [], [src, base])
+        self.offset = offset
+
+    def accept(self, v: TACVisitor) -> None:
+        return v.visitStoreWord(self)
+
+    def __str__(self) -> str:
+        return f"SW {self.srcs[0]} {self.offset}({self.srcs[1]})"

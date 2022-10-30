@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, List, Tuple
 
 from utils.label.funclabel import *
 from utils.label.label import Label, LabelKind
@@ -11,9 +11,10 @@ from .tacprog import TACProg
 
 
 class ProgramWriter:
-    def __init__(self, funcs: list) -> None:
+    def __init__(self, funcs: list, globalDecls: List[Tuple[str, Optional[int]]]) -> None:
         self.funcs = []
         self.ctx = Context()
+        self.globalDecls = globalDecls
         for func in funcs:
             self.funcs.append(func)
             self.ctx.putFuncLabel(func.ident.value)
@@ -27,4 +28,4 @@ class ProgramWriter:
         return FuncVisitor(entry, numArgs, self.ctx)
 
     def visitEnd(self) -> TACProg:
-        return TACProg(self.ctx.funcs)
+        return TACProg(self.ctx.funcs, self.globalDecls)

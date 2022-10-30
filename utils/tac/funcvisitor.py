@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Optional, Union
 
+from frontend.symbol.varsymbol import VarSymbol
 from utils.label.funclabel import FuncLabel
 from utils.label.label import Label
 
@@ -83,11 +84,19 @@ class FuncVisitor:
     def visitRaw(self, instr: TACInstr) -> None:
         self.func.add(instr)
 
-    def visitParam(self, src: Temp) -> None:
-        self.func.add(Param(src))
-
     def visitCall(self, func_label: Label, dst: Temp, param_temp: List[Temp]) -> None:
         self.func.add(Call(func_label, dst, param_temp))
+
+    def visitLoadGlobal(self, global_sym: VarSymbol) -> Temp:
+        dst = self.freshTemp()
+        self.func.add(LoadSymbolAddress(global_sym, dst))
+        self.func.add(LoadWord(dst, dst, 0))
+        return dst
+
+    def visitStoreGlobal(self, global_sym: VarSymbol, src: Temp) -> None:
+        dst = self.freshTemp()
+        self.func.add(LoadSymbolAddress(global_sym, dst))
+        self.func.add(StoreWord(src, dst, 0))
 
     def visitEnd(self) -> None:
         if (len(self.func.instrSeq) == 0) or (not self.func.instrSeq[-1].isReturn()):

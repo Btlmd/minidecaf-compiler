@@ -6,6 +6,7 @@ class LabelKind(Enum):
     TEMP = auto()
     FUNC = auto()
     BLOCK = auto()
+    DECL = auto()
 
 
 class Label:

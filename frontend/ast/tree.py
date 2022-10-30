@@ -6,7 +6,7 @@ Modify this file if you want to add a new AST node.
 
 from __future__ import annotations
 
-from typing import Any, Generic, Optional, TypeVar, Union, List
+from typing import Any, Generic, Optional, TypeVar, Union, List, Tuple
 
 from frontend.type import INT, DecafType
 from utils import T, U
@@ -55,6 +55,9 @@ class Program(ListNode["Function"]):
 
     def functions(self) -> dict[str, Function]:
         return {func.ident.value: func for func in self if isinstance(func, Function)}
+
+    def globalDecls(self) -> dict[str, Declaration]:
+        return {decl.ident.value: decl for decl in self if isinstance(decl, Declaration)}
 
     def hasMainFunc(self) -> bool:
         return "main" in self.functions()

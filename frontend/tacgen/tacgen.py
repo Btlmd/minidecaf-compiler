@@ -22,19 +22,20 @@ class TACGen(Visitor[FuncVisitor, None]):
     # Entry of this phase
     def transform(self, program: Program) -> TACProg:
         # mainFunc = program.mainFunc()
-        pw = ProgramWriter(program.functions().values())
+
+
+        pw = ProgramWriter(
+            program.functions().values(),
+            [
+                (name, decl.getattr('symbol').initValue)
+                for name, decl in program.globalDecls().items()
+            ]
+        )
 
         for name, func in program.functions().items():
             mv = pw.visitFunc(name, len(func.param_list))
             func.accept(self, mv)
             mv.visitEnd()
-
-        # # The function visitor of 'main' is special.
-        # mv = pw.visitMainFunc()
-        #
-        # mainFunc.body.accept(self, mv)
-        # # Remember to call mv.visitEnd after the translation a function.
-        # mv.visitEnd()
 
         # Remember to call pw.visitEnd before finishing the translation phase.
         return pw.visitEnd()
@@ -54,16 +55,25 @@ class TACGen(Visitor[FuncVisitor, None]):
         """
         1. Set the 'val' attribute of ident as the temp variable of the 'symbol' attribute of ident.
         """
-        ident.setattr('val', ident.getattr('symbol').temp)
+        if ident.getattr('symbol').isGlobal:
+            global_val = mv.visitLoadGlobal(ident.getattr('symbol'))
+            ident.setattr('val', global_val)
+        else:
+            ident.setattr('val', ident.getattr('symbol').temp)
 
-    def visitDeclaration(self, decl: Declaration, mv: FuncVisitor) -> Temp:
+    def visitDeclaration(self, decl: Declaration, mv: FuncVisitor) -> Optional[Temp]:
         """
         1. Get the 'symbol' attribute of decl.
         2. Use mv.freshTemp to get a new temp variable for this symbol.
         3. If the declaration has an initial value, use mv.visitAssignment to set it.
         """
+        # Note that global declaration will not be visited here
+        sym: VarSymbol = decl.getattr('symbol')
+        if sym.isGlobal:
+            sym.initValue = decl.init_expr.value
+            return
         temp = mv.freshTemp()
-        decl.getattr('symbol').temp = temp
+        sym.temp = temp
         if decl.init_expr is not NULL:
             decl.init_expr.accept(self, mv)
             mv.visitAssignment(temp, decl.init_expr.getattr('val'))
@@ -76,14 +86,19 @@ class TACGen(Visitor[FuncVisitor, None]):
         3. Set the 'val' attribute of expr as the value of assignment instruction.
         """
         expr.rhs.accept(self, mv)
-        expr.lhs.accept(self, mv)
-        expr.setattr(
-            'val',
-            mv.visitAssignment(
-                expr.lhs.getattr('val'),
-                expr.rhs.getattr('val'),
+        rhs_val = expr.rhs.getattr('val')
+
+        assert isinstance(expr.lhs, Identifier)
+        lhs_symbol = expr.lhs.getattr('symbol')
+        if lhs_symbol.isGlobal:
+            mv.visitStoreGlobal(lhs_symbol, rhs_val)
+        else:
+            expr.lhs.accept(self, mv)
+            lhs_val = expr.lhs.getattr('val')
+            expr.setattr(
+                'val',
+                mv.visitAssignment(lhs_val, rhs_val)
             )
-        )
 
     def visitIf(self, stmt: If, mv: FuncVisitor) -> None:
         stmt.cond.accept(self, mv)

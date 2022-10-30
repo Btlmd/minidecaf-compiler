@@ -22,12 +22,20 @@ class RiscvAsmEmitter(AsmEmitter):
         self,
         allocatableRegs: list[Reg],
         callerSaveRegs: list[Reg],
+        globalDecls: List[Tuple[str, Optional[int]]]
     ) -> None:
         super().__init__(allocatableRegs, callerSaveRegs)
 
     
         # the start of the asm code
         # int step10, you need to add the declaration of global var here
+        self.printer.println(".data")
+        for name, initial_val in filter(lambda x: x[1], globalDecls):
+            self.printer.printDATAWord(name, initial_val)
+        self.printer.println(".bss")
+        for name, _ in filter(lambda x: not x[1], globalDecls):
+            self.printer.printBSS(name, 4)
+
         self.printer.println(".text")
         self.printer.println(".global main")
         self.printer.println("")
@@ -119,6 +127,15 @@ class RiscvAsmEmitter(AsmEmitter):
         # in step9, you need to think about how to pass the parameters and how to store and restore callerSave regs
         def visitCall(self, instr: Call) -> None:
             self.seq.append(Riscv.RCall.fromCall(instr))
+
+        def visitLoadWord(self, instr: LoadWord) -> None:
+            self.seq.append(Riscv.LoadWord(instr.dsts[0], instr.srcs[0], instr.offset))
+
+        def visitStoreWord(self, instr: StoreWord) -> None:
+            self.seq.append(Riscv.StoreWord(*instr.srcs, instr.offset))
+
+        def visitLoadSymbolAddress(self, instr: LoadSymbolAddress) -> None:
+            self.seq.append(Riscv.LoadLabel(instr.dsts[0], instr.symbol.name))
 
         # in step11, you need to think about how to store the array 
 """

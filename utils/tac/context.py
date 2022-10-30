@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from utils.label.blocklabel import BlockLabel
 from utils.label.funclabel import FuncLabel
 from utils.label.label import Label, LabelKind

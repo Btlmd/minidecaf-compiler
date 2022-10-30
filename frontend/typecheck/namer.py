@@ -135,6 +135,11 @@ class Namer(Visitor[ScopeStack, None]):
         if ctx.findConflict(decl.ident.value) is not None:
             raise DecafDeclConflictError(decl.ident.value)
         var = VarSymbol(decl.ident.value, decl.var_t.type)
+        if ctx.isGlobalScope():
+            var.isGlobal = True
+            if decl.init_expr is not NULL:
+                assert isinstance(decl.init_expr, IntLiteral)
+                var.initValue = decl.init_expr.value
         ctx.declare(var)
         decl.setattr('symbol', var)
         if decl.init_expr is not NULL:
