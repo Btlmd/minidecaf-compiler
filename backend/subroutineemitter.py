@@ -45,3 +45,7 @@ class SubroutineEmitter(ABC):
     @abstractmethod
     def emitEnd(self):
         raise NotImplementedError
+
+    @abstractmethod
+    def adjustSP(self, delta: int):
+        raise NotImplementedError

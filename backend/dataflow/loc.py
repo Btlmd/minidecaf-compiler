@@ -10,3 +10,10 @@ class Loc:
         self.instr = instr
         self.liveIn: set[int] = set()
         self.liveOut: set[int] = set()
+
+    def __str__(self) -> str:
+        return "{} lIn{}, lOut{}".format(
+            self.instr,
+            self.liveIn,
+            self.liveOut
+        )

@@ -1,7 +1,8 @@
 from backend.dataflow.basicblock import BasicBlock, BlockKind
 from backend.dataflow.loc import Loc
 from utils.error import IllegalArgumentException, NullPointerException
-from utils.tac.tacinstr import InstrKind, TACInstr
+from utils.tac.tacinstr import InstrKind, TACInstr, Call
+from utils.riscv import Riscv
 
 from .cfg import CFG
 
@@ -26,6 +27,14 @@ class CFGBuilder:
                     self.close()
                     self.currentBBLabel = item.label
             else:
+                if isinstance(item, Riscv.RCall):
+                    bb = BasicBlock(BlockKind.CONTINUOUS, len(self.bbs), self.currentBBLabel, self.buf)
+                    self.save(bb)
+                    self.buf.append(Loc(item))
+                    bb = BasicBlock(BlockKind.CALL, len(self.bbs), self.currentBBLabel, self.buf)
+                    self.save(bb)
+                    continue
+
                 self.buf.append(Loc(item))
                 if not item.isSequential():
                     if item.kind is InstrKind.JMP:

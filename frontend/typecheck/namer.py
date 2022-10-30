@@ -37,10 +37,29 @@ class Namer(Visitor[ScopeStack, None]):
         if not program.hasMainFunc():
             raise DecafNoMainFuncError
 
-        program.mainFunc().accept(self, ctx)
+        for component in program:
+            assert ctx.isGlobalScope()
+            component.accept(self, ctx)
+
+    def visitParameter(self, that: Parameter, ctx: T) -> None:
+        return self.visitDeclaration(that, ctx)
 
     def visitFunction(self, func: Function, ctx: ScopeStack) -> None:
-        func.body.accept(self, ctx)
+        # Check identifier conflict
+        if ctx.findConflict(func.ident.value):
+            raise DecafDeclConflictError(func.ident.value)
+        sym = FuncSymbol(func.ident.value, func.ret_t.type, ctx.currentScope())
+        ctx.declare(sym)
+        func.setattr('symbol', sym)
+        assert ctx.isGlobalScope()
+        with ctx.local():
+            for param in func.param_list:
+                sym.addParaType(param.var_t.type)
+                param.accept(self, ctx)
+            # Visit body statements.
+            # Note that visit the block directly will generate a new scope
+            for stmt in func.body.children:
+                stmt.accept(self, ctx)
 
     def visitBlock(self, block: Block, ctx: ScopeStack) -> None:
         with ctx.local():
@@ -159,3 +178,17 @@ class Namer(Visitor[ScopeStack, None]):
         value = expr.value
         if value > MAX_INT:
             raise DecafBadIntValueError(value)
+
+    def visitCall(self, call: Call, ctx: ScopeStack) -> None:
+        func: FuncSymbol = ctx.lookup(call.ident.value)
+        # Check if function is defined
+        if func is None or func.isFunc is False:
+            raise DecafUndefinedFuncError(call.ident.value)
+
+        # Check if param_list match
+        if len(call.arg_list) != func.parameterNum:
+            raise DecafBadFuncCallError(f"Expecting {func.parameterNum} parameters, got {len(call.arg_list)}")
+
+        call.ident.setattr('symbol', func)
+        for arg in call.arg_list:
+            arg.accept(self, ctx)

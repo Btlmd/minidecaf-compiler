@@ -6,7 +6,7 @@ Modify this file if you want to add a new AST node.
 
 from __future__ import annotations
 
-from typing import Any, Generic, Optional, TypeVar, Union
+from typing import Any, Generic, Optional, TypeVar, Union, List
 
 from frontend.type import INT, DecafType
 from utils import T, U
@@ -65,6 +65,9 @@ class Program(ListNode["Function"]):
     def accept(self, v: Visitor[T, U], ctx: T):
         return v.visitProgram(self, ctx)
 
+    def __iadd__(self, other: List[Union[Function, Declaration]]):
+        self.children += other
+        return self
 
 class Function(Node):
     """
@@ -76,21 +79,24 @@ class Function(Node):
         ret_t: TypeLiteral,
         ident: Identifier,
         body: Block,
+        param_list: List[Parameter],
     ) -> None:
         super().__init__("function")
         self.ret_t = ret_t
         self.ident = ident
         self.body = body
+        self.param_list = param_list
 
     def __getitem__(self, key: int) -> Node:
         return (
             self.ret_t,
             self.ident,
             self.body,
+            *self.param_list,
         )[key]
 
     def __len__(self) -> int:
-        return 3
+        return 3 + len(self.param_list)
 
     def accept(self, v: Visitor[T, U], ctx: T):
         return v.visitFunction(self, ctx)
@@ -233,6 +239,14 @@ class Declaration(Node):
     def accept(self, v: Visitor[T, U], ctx: T):
         return v.visitDeclaration(self, ctx)
 
+class Parameter(Declaration):
+    def __init__(self, var_t: TypeLiteral, ident: Identifier):
+        super().__init__(var_t, ident)
+        self.var_t = var_t
+        self.ident = ident
+
+    def accept(self, v: Visitor[T, U], ctx: T) -> Optional[U]:
+        return v.visitParameter(self, ctx)
 
 class Expression(Node):
     """
@@ -243,6 +257,23 @@ class Expression(Node):
         super().__init__(name)
         self.type: Optional[DecafType] = None
 
+class Call(Expression):
+    def __init__(self, ident: Identifier, arg_list: List[Expression]):
+        super(Call, self).__init__("call")
+        self.ident = ident
+        self.arg_list = arg_list
+
+    def __len__(self):
+        return 1 + len(self.arg_list)
+
+    def __getitem__(self, item):
+        return (
+            self.ident,
+            *self.arg_list
+        )[item]
+
+    def accept(self, v: Visitor[T, U], ctx: T) -> Optional[U]:
+        return v.visitCall(self, ctx)
 
 class Unary(Expression):
     """
@@ -484,3 +515,4 @@ class Continue(Statement):
 
     def is_leaf(self):
         return True
+

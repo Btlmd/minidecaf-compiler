@@ -21,14 +21,20 @@ class TACGen(Visitor[FuncVisitor, None]):
 
     # Entry of this phase
     def transform(self, program: Program) -> TACProg:
-        mainFunc = program.mainFunc()
-        pw = ProgramWriter(["main"])
-        # The function visitor of 'main' is special.
-        mv = pw.visitMainFunc()
+        # mainFunc = program.mainFunc()
+        pw = ProgramWriter(program.functions().values())
 
-        mainFunc.body.accept(self, mv)
-        # Remember to call mv.visitEnd after the translation a function.
-        mv.visitEnd()
+        for name, func in program.functions().items():
+            mv = pw.visitFunc(name, len(func.param_list))
+            func.accept(self, mv)
+            mv.visitEnd()
+
+        # # The function visitor of 'main' is special.
+        # mv = pw.visitMainFunc()
+        #
+        # mainFunc.body.accept(self, mv)
+        # # Remember to call mv.visitEnd after the translation a function.
+        # mv.visitEnd()
 
         # Remember to call pw.visitEnd before finishing the translation phase.
         return pw.visitEnd()
@@ -50,16 +56,18 @@ class TACGen(Visitor[FuncVisitor, None]):
         """
         ident.setattr('val', ident.getattr('symbol').temp)
 
-    def visitDeclaration(self, decl: Declaration, mv: FuncVisitor) -> None:
+    def visitDeclaration(self, decl: Declaration, mv: FuncVisitor) -> Temp:
         """
         1. Get the 'symbol' attribute of decl.
         2. Use mv.freshTemp to get a new temp variable for this symbol.
         3. If the declaration has an initial value, use mv.visitAssignment to set it.
         """
-        decl.getattr('symbol').temp = mv.freshTemp()
+        temp = mv.freshTemp()
+        decl.getattr('symbol').temp = temp
         if decl.init_expr is not NULL:
             decl.init_expr.accept(self, mv)
-            mv.visitAssignment(decl.getattr('symbol').temp, decl.init_expr.getattr('val'))
+            mv.visitAssignment(temp, decl.init_expr.getattr('val'))
+        return temp
 
     def visitAssignment(self, expr: Assignment, mv: FuncVisitor) -> None:
         """
@@ -225,3 +233,29 @@ class TACGen(Visitor[FuncVisitor, None]):
         mv.visitBranch(beginLabel)
         mv.visitLabel(breakLabel)
         mv.closeLoop()
+
+    def visitFunction(self, func: Function, mv: FuncVisitor) -> None:
+        for p in func.param_list:
+            p.accept(self, mv)
+        func.body.accept(self, mv)
+
+    def visitParameter(self, that: Parameter, mv: FuncVisitor) -> None:
+        temp = self.visitDeclaration(that, mv)
+        mv.func.addArgTemp(temp)
+
+    def visitCall(self, call: Call, mv: FuncVisitor) -> None:
+        # Evaluate Argument Expressions
+        param_temp = []
+        for arg_expr in call.arg_list:
+            arg_expr.accept(self, mv)
+            assert arg_expr.getattr('val')
+            param_temp += [arg_expr.getattr('val')]
+
+        # for arg_expr in call.arg_list:
+        #     mv.visitParam(arg_expr.getattr('val'))
+
+        # Assign Return Value
+        ret = mv.freshTemp()
+        call.setattr('val', ret)
+        func_label = mv.ctx.getFuncLabel(call.ident.value)
+        mv.visitCall(func_label, ret, param_temp)

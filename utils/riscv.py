@@ -1,11 +1,11 @@
-from typing import Final, Optional
+from typing import Final, Optional, List
 
 from utils.label.funclabel import FuncLabel
 from utils.label.label import Label, LabelKind
 from utils.tac.holeinstr import HoleInstr
 from utils.tac.nativeinstr import NativeInstr
 from utils.tac.reg import Reg
-from utils.tac.tacinstr import TACInstr
+from utils.tac.tacinstr import TACInstr, Call
 from utils.tac.tacop import BinaryOp, InstrKind, UnaryOp
 from utils.tac.temp import Temp
 
@@ -160,9 +160,10 @@ class Riscv:
             )
 
     class NativeLoadWord(NativeInstr):
-        def __init__(self, dst: Reg, base: Reg, offset: int) -> None:
+        def __init__(self, dst: Reg, base: Reg, offset: int, temp: Temp = None) -> None:
             super().__init__(InstrKind.SEQ, [dst], [base], None)
             self.offset = offset
+            self.temp = temp
 
         def __str__(self) -> str:
             assert -2048 <= self.offset <= 2047  # Riscv imm [11:0]
@@ -176,3 +177,15 @@ class Riscv:
 
         def __str__(self) -> str:
             return "ret"
+
+    class RCall(TACInstr):
+        @classmethod
+        def fromCall(cls, call: Call):
+            assert isinstance(call, Call)
+            return cls(call.label, call.srcs, call.dsts[0])
+
+        def __init__(self, func_label: Label, param_list: List[Temp], dst: Temp):
+            super().__init__(InstrKind.CALL, [dst], param_list, func_label)
+
+        def __str__(self) -> str:
+            return f"call {self.label.name}"

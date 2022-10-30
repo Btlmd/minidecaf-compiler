@@ -7,3 +7,4 @@ frontend/parser/parser.out
 test.*
 *.diff
 .minidecaf-tests
+*.cmd

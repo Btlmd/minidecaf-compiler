@@ -83,6 +83,12 @@ class FuncVisitor:
     def visitRaw(self, instr: TACInstr) -> None:
         self.func.add(instr)
 
+    def visitParam(self, src: Temp) -> None:
+        self.func.add(Param(src))
+
+    def visitCall(self, func_label: Label, dst: Temp, param_temp: List[Temp]) -> None:
+        self.func.add(Call(func_label, dst, param_temp))
+
     def visitEnd(self) -> None:
         if (len(self.func.instrSeq) == 0) or (not self.func.instrSeq[-1].isReturn()):
             self.func.add(Return(None))

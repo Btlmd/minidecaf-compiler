@@ -33,6 +33,9 @@ class CFG:
             for n in self.links[visited_node][1].difference(self.reachable):
                 q.put(n)
 
+    def __len__(self):
+        return len(self.reachable)
+
     def getBlock(self, id):
         return self.nodes[id]
 

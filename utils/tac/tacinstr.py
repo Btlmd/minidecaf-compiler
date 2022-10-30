@@ -1,5 +1,5 @@
 from enum import Enum, auto, unique
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, List
 
 from utils.label.label import Label
 from utils.tac.nativeinstr import NativeInstr
@@ -16,7 +16,7 @@ class TACInstr:
         kind: InstrKind,
         dsts: list[Temp],
         srcs: list[Temp],
-        label: Optional[Label],
+        label: Optional[Label] = None,
     ) -> None:
         self.kind = kind
         self.dsts = dsts.copy()
@@ -47,7 +47,7 @@ class TACInstr:
         newInstr = NativeInstr(self.kind, dstRegs, srcRegs, self.label, instrString)
         self.dsts = oldDsts
         self.srcs = oldSrcs
-        return newInstr
+        return newInstr  # ?????
 
     def accept(self, v: TACVisitor) -> None:
         pass
@@ -202,3 +202,25 @@ class Mark(TACInstr):
 
     def accept(self, v: TACVisitor) -> None:
         v.visitMark(self)
+
+
+class Param(TACInstr):
+    def __init__(self, src: Temp):
+        super(Param, self).__init__(InstrKind.SEQ, list(), [src])
+
+    def accept(self, v: TACVisitor) -> None:
+        return v.visitParam(self)
+
+    def __str__(self) -> str:
+        return f"PARAM {self.srcs[0]}"
+
+
+class Call(TACInstr):
+    def __init__(self, func_label: Label, dst: Temp, param_temps: List[Temp]):
+        super(Call, self).__init__(InstrKind.SEQ, [dst], param_temps, func_label)
+
+    def accept(self, v: TACVisitor) -> None:
+        return v.visitCall(self)
+
+    def __str__(self) -> str:
+        return f"{self.dsts[0]} = CALL {self.label.name} ({self.srcs})"

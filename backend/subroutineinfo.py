@@ -1,4 +1,4 @@
-from utils.label.funclabel import FuncLabel
+from utils.tac.tacfunc import TACFunc
 
 """
 SubroutineInfo: collect some info when selecting instr which will be used in SubroutineEmitter
@@ -6,10 +6,12 @@ SubroutineInfo: collect some info when selecting instr which will be used in Sub
 
 
 class SubroutineInfo:
-    def __init__(self, funcLabel: FuncLabel) -> None:
-        self.funcLabel = funcLabel
+    def __init__(self, func: TACFunc) -> None:
+        self.funcLabel = func.entry
+        self.argTemps = func.argTemps
 
     def __str__(self) -> str:
-        return "funcLabel: {}".format(
+        return "funcLabel: {}{}".format(
             self.funcLabel.name,
+            str(self.argTemps),
         )

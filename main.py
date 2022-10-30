@@ -14,6 +14,10 @@ from utils.printtree import TreePrinter
 from utils.riscv import Riscv
 from utils.tac.tacprog import TACProg
 
+# Add random seed for reg spill
+import random
+random.seed(2022)
+
 
 def parseArgs():
     parser = argparse.ArgumentParser(description="MiniDecaf compiler")
@@ -62,7 +66,7 @@ def step_asm(p: TACProg):
     prog = asm.transform(p)
     return prog
 
-# hope all of you happiness
+# hope all of your happiness
 # enjoy potato chips
 
 def main():
