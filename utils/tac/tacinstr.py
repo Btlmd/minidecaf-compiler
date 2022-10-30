@@ -203,18 +203,6 @@ class Mark(TACInstr):
     def accept(self, v: TACVisitor) -> None:
         v.visitMark(self)
 
-
-class Param(TACInstr):
-    def __init__(self, src: Temp):
-        super(Param, self).__init__(InstrKind.SEQ, list(), [src])
-
-    def accept(self, v: TACVisitor) -> None:
-        return v.visitParam(self)
-
-    def __str__(self) -> str:
-        return f"PARAM {self.srcs[0]}"
-
-
 class Call(TACInstr):
     def __init__(self, func_label: Label, dst: Temp, param_temps: List[Temp]):
         super(Call, self).__init__(InstrKind.SEQ, [dst], param_temps, func_label)

@@ -251,9 +251,6 @@ class TACGen(Visitor[FuncVisitor, None]):
             assert arg_expr.getattr('val')
             param_temp += [arg_expr.getattr('val')]
 
-        # for arg_expr in call.arg_list:
-        #     mv.visitParam(arg_expr.getattr('val'))
-
         # Assign Return Value
         ret = mv.freshTemp()
         call.setattr('val', ret)
