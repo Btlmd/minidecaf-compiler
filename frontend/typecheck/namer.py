@@ -46,15 +46,25 @@ class Namer(Visitor[ScopeStack, None]):
 
     def visitFunction(self, func: Function, ctx: ScopeStack) -> None:
         # Check identifier conflict
-        if ctx.findConflict(func.ident.value):
-            raise DecafDeclConflictError(func.ident.value)
         sym = FuncSymbol(func.ident.value, func.ret_t.type, ctx.currentScope())
-        ctx.declare(sym)
+        for param in func.param_list:
+            sym.addParaType(param.var_t.type)
+
+        potential_sym = ctx.lookup(func.ident.value)
+        if ctx.findConflict(func.ident.value):
+            if not (isinstance(potential_sym, FuncSymbol) and potential_sym == sym):
+                raise DecafDeclConflictError(func.ident.value)
+            sym = potential_sym
+        else:
+            ctx.declare(sym)
+
         func.setattr('symbol', sym)
         assert ctx.isGlobalScope()
+        if func.body is NULL:  # function decl only
+            return
+        sym.define_function()
         with ctx.local():
             for param in func.param_list:
-                sym.addParaType(param.var_t.type)
                 param.accept(self, ctx)
             # Visit body statements.
             # Note that visit the block directly will generate a new scope

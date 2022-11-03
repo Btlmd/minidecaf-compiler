@@ -48,6 +48,10 @@ class DecafUndefinedFuncError(Exception):
     def __init__(self, name: str) -> None:
         super().__init__("Semantic error: undefined function '%s'" % name)
 
+class DecafFuncMultipleDefinitionError(Exception):
+    def __init__(self, name: str) -> None:
+        super().__init__("Semantic error: function '%s' is declared more then once" % name)
+
 
 class DecafBreakOutsideLoopError(Exception):
     def __init__(self) -> None:

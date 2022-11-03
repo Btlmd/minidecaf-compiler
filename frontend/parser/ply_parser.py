@@ -83,11 +83,17 @@ def p_function_parameter_list_component(p):
     """
     p[0] = p[1] + p[3]
 
-def p_function_def(p):
+def p_function_delc_def(p):
     """
     function : type Identifier LParen parameter_list RParen LBrace block RBrace
     """
     p[0] = Function(p[1], p[2], p[7], p[4])
+
+def p_function_delc_only(p):
+    """
+    function : type Identifier LParen parameter_list RParen Semi
+    """
+    p[0] = Function(p[1], p[2], NULL, p[4])
 
 def p_call_expression_list_empty(p):
     """

@@ -33,6 +33,8 @@ class TACGen(Visitor[FuncVisitor, None]):
         )
 
         for name, func in program.functions().items():
+            if func.body is NULL:
+                continue
             mv = pw.visitFunc(name, len(func.param_list))
             func.accept(self, mv)
             mv.visitEnd()

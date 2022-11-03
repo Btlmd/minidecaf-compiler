@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Optional, Union, List, Tuple
-
+from frontend.ast.tree import Function, NULL
 from utils.label.funclabel import *
 from utils.label.label import Label, LabelKind
 
@@ -11,7 +11,7 @@ from .tacprog import TACProg
 
 
 class ProgramWriter:
-    def __init__(self, funcs: list, globalDecls: List[Tuple[str, Optional[int]]]) -> None:
+    def __init__(self, funcs: List[Function], globalDecls: List[Tuple[str, Optional[int]]]) -> None:
         self.funcs = []
         self.ctx = Context()
         self.globalDecls = globalDecls
