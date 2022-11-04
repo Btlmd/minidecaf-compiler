@@ -33,7 +33,7 @@ class AsmCodePrinter:
         return self.buffer
 
     def printBSS(self, symbol: str, space: int):
-        self.buffer += f".globl {symbol}\n{symbol}:\n{self.INDENTS}.space {space}\n"
+        self.buffer += f"{self.INDENTS}.globl {symbol}\n{symbol}:\n{self.INDENTS}.space {space}\n\n"
 
     def printDATAWord(self, symbol: str, val: int):
-        self.buffer += f".globl {symbol}\n{symbol}:\n{self.INDENTS}.word {val}\n"
+        self.buffer += f"{self.INDENTS}.globl {symbol}\n{symbol}:\n{self.INDENTS}.word {val}\n\n"

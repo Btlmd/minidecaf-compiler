@@ -14,7 +14,12 @@ class TACInstr:
     @classmethod
     def fromNative(cls: type, Native: type):
         class _TACInstr(Native, cls):
-            pass
+            def getRead(self) -> list[int]:
+                return cls.getRead(self)
+
+            def getWritten(self) -> list[int]:
+                return cls.getWritten(self)
+
         return _TACInstr
 
     def __init__(

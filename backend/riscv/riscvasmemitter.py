@@ -32,10 +32,13 @@ class RiscvAsmEmitter(AsmEmitter):
         self.printer.println(".data")
         for name, initial_val in filter(lambda x: x[1], globalDecls):
             self.printer.printDATAWord(name, initial_val)
+
+        self.printer.println("")
         self.printer.println(".bss")
         for name, _ in filter(lambda x: not x[1], globalDecls):
             self.printer.printBSS(name, 4)
 
+        self.printer.println("")
         self.printer.println(".text")
         self.printer.println(".global main")
         self.printer.println("")
