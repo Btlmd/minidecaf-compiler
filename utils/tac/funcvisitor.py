@@ -14,9 +14,9 @@ from .temp import Temp
 
 
 class FuncVisitor:
-    def __init__(self, entry: FuncLabel, numArgs: int, ctx: Context) -> None:
+    def __init__(self, entry: FuncLabel, numArgs: int, local_arrays: List[VarSymbol], ctx: Context) -> None:
         self.ctx = ctx
-        self.func = TACFunc(entry, numArgs)
+        self.func = TACFunc(entry, numArgs, local_arrays)
         self.visitLabel(entry)
         self.nextTempId = 0
 
@@ -84,19 +84,32 @@ class FuncVisitor:
     def visitRaw(self, instr: TACInstr) -> None:
         self.func.add(instr)
 
+    def visitLoadSymbolAddress(self, sym: VarSymbol):
+        dst = self.freshTemp()
+        self.func.add(LoadSymbolAddress(sym, dst))
+        return dst
+
+    def visitLoadFromAddress(self, addr: Temp):
+        dst = self.freshTemp()
+        self.func.add(LoadWord(dst, addr, 0))
+        return dst
+
+    def visitStoreToAddress(self, src: Temp, addr: Temp):
+        self.func.add(StoreWord(src, addr, 0))
+
     def visitCall(self, func_label: Label, dst: Temp, param_temp: List[Temp]) -> None:
         self.func.add(Call(func_label, dst, param_temp))
 
-    def visitLoadGlobal(self, global_sym: VarSymbol) -> Temp:
+    def visitLoadFromSymbol(self, sym: VarSymbol, offset: int = 0) -> Temp:
         dst = self.freshTemp()
-        self.func.add(LoadSymbolAddress(global_sym, dst))
-        self.func.add(LoadWord(dst, dst, 0))
+        self.func.add(LoadSymbolAddress(sym, dst))
+        self.func.add(LoadWord(dst, dst, offset))
         return dst
 
-    def visitStoreGlobal(self, global_sym: VarSymbol, src: Temp) -> None:
+    def visitStoreToSymbol(self, sym: VarSymbol, src: Temp, offset: int = 0) -> None:
         dst = self.freshTemp()
-        self.func.add(LoadSymbolAddress(global_sym, dst))
-        self.func.add(StoreWord(src, dst, 0))
+        self.func.add(LoadSymbolAddress(sym, dst))
+        self.func.add(StoreWord(src, dst, offset))
 
     def visitEnd(self) -> None:
         if (len(self.func.instrSeq) == 0) or (not self.func.instrSeq[-1].isReturn()):

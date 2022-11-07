@@ -4,6 +4,7 @@ from frontend.ast.tree import *
 from frontend.ast.visitor import Visitor
 from frontend.symbol.varsymbol import VarSymbol
 from frontend.type.array import ArrayType
+from frontend.type.builtin_type import BuiltinType
 from utils.tac import tacop
 from utils.tac.funcvisitor import FuncVisitor
 from utils.tac.programwriter import ProgramWriter
@@ -21,21 +22,16 @@ class TACGen(Visitor[FuncVisitor, None]):
 
     # Entry of this phase
     def transform(self, program: Program) -> TACProg:
-        # mainFunc = program.mainFunc()
-
 
         pw = ProgramWriter(
             program.functions().values(),
-            [
-                (name, decl.getattr('symbol').initValue)
-                for name, decl in program.globalDecls().items()
-            ]
+            program.globalDecls().values(),
         )
 
         for name, func in program.functions().items():
             if func.body is NULL:
                 continue
-            mv = pw.visitFunc(name, len(func.param_list))
+            mv = pw.visitFunc(name, len(func.param_list), func.local_arrays)
             func.accept(self, mv)
             mv.visitEnd()
 
@@ -57,8 +53,14 @@ class TACGen(Visitor[FuncVisitor, None]):
         """
         1. Set the 'val' attribute of ident as the temp variable of the 'symbol' attribute of ident.
         """
-        if ident.getattr('symbol').isGlobal:
-            global_val = mv.visitLoadGlobal(ident.getattr('symbol'))
+        sym: VarSymbol = ident.getattr('symbol')
+        if isinstance(sym.type, ArrayType):
+            addr_temp = mv.visitLoadSymbolAddress(sym)
+            ident.setattr('addr', addr_temp)
+            return
+
+        if sym.isGlobal:
+            global_val = mv.visitLoadFromSymbol(sym)
             ident.setattr('val', global_val)
         else:
             ident.setattr('val', ident.getattr('symbol').temp)
@@ -71,6 +73,8 @@ class TACGen(Visitor[FuncVisitor, None]):
         """
         # Note that global declaration will not be visited here
         sym: VarSymbol = decl.getattr('symbol')
+        # if sym.type is ArrayType:
+        #
         if sym.isGlobal:
             sym.initValue = decl.init_expr.value
             return
@@ -89,18 +93,25 @@ class TACGen(Visitor[FuncVisitor, None]):
         """
         expr.rhs.accept(self, mv)
         rhs_val = expr.rhs.getattr('val')
+        expr.setattr('val', rhs_val)
+
+        if isinstance(expr.lhs, Subscription):
+            expr.lhs.setattr('addr_only', True)
+            expr.lhs.accept(self, mv)
+            mv.visitStoreToAddress(
+                rhs_val,
+                expr.lhs.getattr('addr')
+            )
+            return
 
         assert isinstance(expr.lhs, Identifier)
         lhs_symbol = expr.lhs.getattr('symbol')
         if lhs_symbol.isGlobal:
-            mv.visitStoreGlobal(lhs_symbol, rhs_val)
+            mv.visitStoreToSymbol(lhs_symbol, rhs_val)
         else:
             expr.lhs.accept(self, mv)
             lhs_val = expr.lhs.getattr('val')
-            expr.setattr(
-                'val',
-                mv.visitAssignment(lhs_val, rhs_val)
-            )
+            mv.visitAssignment(lhs_val, rhs_val)
 
     def visitIf(self, stmt: If, mv: FuncVisitor) -> None:
         stmt.cond.accept(self, mv)
@@ -273,3 +284,23 @@ class TACGen(Visitor[FuncVisitor, None]):
         call.setattr('val', ret)
         func_label = mv.ctx.getFuncLabel(call.ident.value)
         mv.visitCall(func_label, ret, param_temp)
+
+    def visitSubscription(self, sub: Subscription, mv: FuncVisitor) -> None:
+        sub.base.setattr('addr_only', True)
+        sub.base.accept(self, mv)
+        sub.index.accept(self, mv)
+        assert sub.index.getattr('val')
+
+        # determine expression address
+        base_offset_temp = sub.base.getattr('addr')
+        offset_temp = mv.visitLoad(sub.getattr('type').size)
+        mv.visitBinarySelf(tacop.BinaryOp.MUL, offset_temp, sub.index.getattr('val'))
+        mv.visitBinarySelf(tacop.BinaryOp.ADD, offset_temp, base_offset_temp)
+        sub.setattr('addr', offset_temp)
+
+        # determine expression value,
+        if sub.getattr('addr_only') is None:
+            sub.setattr(
+                'val',
+                mv.visitLoadFromAddress(offset_temp)
+            )

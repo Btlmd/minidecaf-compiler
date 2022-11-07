@@ -13,6 +13,7 @@ from utils import T, U
 
 from .node import NULL, BinaryOp, Node, UnaryOp
 from .visitor import Visitor, accept
+from utils.error import *
 
 _T = TypeVar("_T", bound=Node)
 U = TypeVar("U", covariant=True)
@@ -89,6 +90,7 @@ class Function(Node):
         self.ident = ident
         self.body = body
         self.param_list = param_list
+        self.local_arrays = None
 
     def __getitem__(self, key: int) -> Node:
         return (
@@ -227,17 +229,23 @@ class Declaration(Node):
         var_t: TypeLiteral,
         ident: Identifier,
         init_expr: Optional[Expression] = None,
+        array_dim: Optional[List[IntLiteral]] = None,
     ) -> None:
         super().__init__("declaration")
         self.var_t = var_t
         self.ident = ident
         self.init_expr = init_expr or NULL
+        if array_dim is not None:
+            for dim_literal in array_dim:
+                if dim_literal.value <= 0:
+                    raise DecafBadArraySizeError()
+        self.array_dim = array_dim or NULL
 
     def __getitem__(self, key: int) -> Node:
-        return (self.var_t, self.ident, self.init_expr)[key]
+        return (self.var_t, self.ident, self.init_expr, self.array_dim)[key]
 
     def __len__(self) -> int:
-        return 3
+        return 4
 
     def accept(self, v: Visitor[T, U], ctx: T):
         return v.visitDeclaration(self, ctx)
@@ -519,3 +527,20 @@ class Continue(Statement):
     def is_leaf(self):
         return True
 
+class Subscription(Expression):
+    def __init__(self, base: Expression, index: Expression):
+        super(Subscription, self).__init__("subscription")
+        self.base = base
+        self.index = index
+
+    def __len__(self):
+        return 2
+
+    def __getitem__(self, item):
+        return (
+            self.base,
+            self.index
+        )[item]
+
+    def accept(self, v: Visitor[T, U], ctx: T) -> Optional[U]:
+        return v.visitSubscription(self, ctx)

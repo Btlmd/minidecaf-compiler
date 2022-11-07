@@ -40,6 +40,7 @@ class BruteRegAlloc(RegAlloc):
     def accept(self, graph: CFG, info: SubroutineInfo) -> None:
         subEmitter = self.emitter.emitSubroutine(info)
         self.clearUsed()
+        self.restoreBindings()
 
         # bind (actually stash) A0 ~ A7
         # other args are marked in `RiscvSubroutineEmitter.argOffset`

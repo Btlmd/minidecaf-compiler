@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from typing import Any, Optional, Union, List, Tuple
-from frontend.ast.tree import Function, NULL
+from frontend.ast.tree import Function, NULL, Declaration
+from frontend.symbol.varsymbol import VarSymbol
 from utils.label.funclabel import *
 from utils.label.label import Label, LabelKind
 
@@ -11,7 +12,7 @@ from .tacprog import TACProg
 
 
 class ProgramWriter:
-    def __init__(self, funcs: List[Function], globalDecls: List[Tuple[str, Optional[int]]]) -> None:
+    def __init__(self, funcs: List[Function], globalDecls: List[Declaration]) -> None:
         self.funcs = []
         self.ctx = Context()
         self.globalDecls = globalDecls
@@ -19,13 +20,9 @@ class ProgramWriter:
             self.funcs.append(func)
             self.ctx.putFuncLabel(func.ident.value)
 
-    def visitMainFunc(self) -> FuncVisitor:
-        entry = MAIN_LABEL
-        return FuncVisitor(entry, 0, self.ctx)
-
-    def visitFunc(self, name: str, numArgs: int) -> FuncVisitor:
+    def visitFunc(self, name: str, numArgs: int, local_arrays: List[VarSymbol]) -> FuncVisitor:
         entry = self.ctx.getFuncLabel(name)
-        return FuncVisitor(entry, numArgs, self.ctx)
+        return FuncVisitor(entry, numArgs, local_arrays, self.ctx)
 
     def visitEnd(self) -> TACProg:
         return TACProg(self.ctx.funcs, self.globalDecls)

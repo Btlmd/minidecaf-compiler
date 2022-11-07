@@ -260,7 +260,7 @@ def p_unary_expression(p):
 
 def p_binary_expression(p):
     """
-    assignment : Identifier Assign expression
+    assignment : unary Assign expression
     logical_or : logical_or Or logical_and
     logical_and : logical_and And bit_or
     bit_or : bit_or BitOr xor
@@ -351,6 +351,31 @@ def p_continue(p):
     statement_matched : Continue Semi
     """
     p[0] = Continue()
+
+def p_subscription(p):
+    """
+    postfix : postfix LSquBr expression RSquBr
+    """
+    p[0] = Subscription(p[1], p[3])
+
+def p_array_dim_empty(p):
+    """
+    array_dim_decl : empty
+    """
+    p[0] = []
+
+def p_array_dim_component(p):
+    """
+    array_dim_decl : array_dim_decl LSquBr Integer RSquBr
+    """
+    p[1].append(p[3])
+    p[0] = p[1]
+
+def p_array_decl(p):
+    """
+    declaration : type Identifier array_dim_decl
+    """
+    p[0] = Declaration(p[1], p[2], array_dim=p[3])
 
 parser = yacc.yacc(start="program")
 parser.error_stack = error_stack  # type: ignore

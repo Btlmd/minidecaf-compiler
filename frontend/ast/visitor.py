@@ -88,6 +88,9 @@ class Visitor(Protocol[T, U]):  # type: ignore
     def visitCall(self, that: Call, ctx: T) -> Optional[U]:
         return self.visitOther(that, ctx)
 
+    def visitSubscription(self, that: Subscription, ctx: T) -> Optional[U]:
+        return self.visitOther(that, ctx)
+
 
 class RecursiveVisitor(Visitor[T, U]):
     def visitOther(self, node: Node, ctx: T) -> Optional[Sequence[Optional[U]]]:

@@ -1,5 +1,6 @@
 from typing import Final, Optional, List
 
+from frontend.symbol.varsymbol import VarSymbol
 from utils.label.funclabel import FuncLabel
 from utils.label.label import Label, LabelKind
 from utils.tac.holeinstr import HoleInstr
@@ -201,4 +202,25 @@ class Riscv:
         def __str__(self) -> str:
             return "la " + Riscv.FMT2.format(
                 str(self.dsts[0]), self.symbol_str
+            )
+
+    class LoadLocalArray(TACInstr):
+        def __init__(self, dst: Temp, symbol: VarSymbol) -> None:
+            super().__init__(InstrKind.SEQ, [dst], [])
+            self.symbol = symbol
+
+        def __str__(self) -> str:
+            return "LoadLocalArray " + Riscv.FMT2.format(
+                str(self.dsts[0]), self.symbol.name
+            )
+
+    class AddImm(TACInstr):
+        def __init__(self, src: Temp, dst: Temp, imm: int):
+            super().__init__(InstrKind.SEQ, [dst], [src])
+            self.imm = imm
+
+        def __str__(self) -> str:
+            assert -2048 <= self.imm <= 2047  # Riscv imm [11:0]
+            return "addi " + Riscv.FMT3.format(
+                str(self.dsts[0]), str(self.srcs[0]), str(self.imm)
             )

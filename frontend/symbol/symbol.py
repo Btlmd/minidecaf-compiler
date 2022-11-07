@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 
 from frontend.type.type import DecafType
 
+from collections import namedtuple
+
 """
 A symbol is created when a variable/function definition is identified.
 

@@ -1,5 +1,6 @@
 from typing import List
 
+from frontend.symbol.varsymbol import VarSymbol
 from utils.label.funclabel import FuncLabel
 
 from .tacinstr import TACInstr
@@ -7,12 +8,13 @@ from .temp import Temp
 
 
 class TACFunc:
-    def __init__(self, entry: FuncLabel, numArgs: int) -> None:
+    def __init__(self, entry: FuncLabel, numArgs: int, local_arrays: List[VarSymbol]) -> None:
         self.entry = entry
         self.numArgs = numArgs
         self.instrSeq = []
         self.tempUsed = 0
         self.argTemps: List[Temp] = []
+        self.local_arrays = local_arrays
 
     def addArgTemp(self, temp: Temp) -> None:
         self.argTemps += [temp]

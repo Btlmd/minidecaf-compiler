@@ -247,7 +247,6 @@ class LoadWord(TACInstr):
     def __str__(self) -> str:
         return f"LW {self.dsts[0]} {self.offset}({self.srcs[0]})"
 
-
 class StoreWord(TACInstr):
     def __init__(self, src: Temp, base: Temp, offset: int):
         super(StoreWord, self).__init__(InstrKind.SEQ, [], [src, base])
@@ -258,3 +257,4 @@ class StoreWord(TACInstr):
 
     def __str__(self) -> str:
         return f"SW {self.srcs[0]} {self.offset}({self.srcs[1]})"
+

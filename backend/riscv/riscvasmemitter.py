@@ -1,6 +1,9 @@
 from typing import Sequence, Tuple, Dict
 
+from frontend.ast.tree import Declaration, NULL
 from backend.asmemitter import AsmEmitter
+from frontend.symbol.varsymbol import VarSymbol
+from frontend.type import ArrayType
 from utils.error import IllegalArgumentException
 from utils.label.label import Label, LabelKind
 from utils.riscv import Riscv
@@ -22,7 +25,7 @@ class RiscvAsmEmitter(AsmEmitter):
         self,
         allocatableRegs: list[Reg],
         callerSaveRegs: list[Reg],
-        globalDecls: List[Tuple[str, Optional[int]]]
+        globalDecls: List[Declaration]
     ) -> None:
         super().__init__(allocatableRegs, callerSaveRegs)
 
@@ -30,13 +33,13 @@ class RiscvAsmEmitter(AsmEmitter):
         # the start of the asm code
         # int step10, you need to add the declaration of global var here
         self.printer.println(".data")
-        for name, initial_val in filter(lambda x: x[1], globalDecls):
-            self.printer.printDATAWord(name, initial_val)
+        for decl in filter(lambda x: x.init_expr is not NULL, globalDecls):
+            self.printer.printDATAWord(decl.ident.value, decl.init_expr.value)
 
         self.printer.println("")
         self.printer.println(".bss")
-        for name, _ in filter(lambda x: not x[1], globalDecls):
-            self.printer.printBSS(name, 4)
+        for decl in filter(lambda x: x.init_expr is NULL, globalDecls):
+            self.printer.printBSS(decl.ident.value, decl.ident.type.size)
 
         self.printer.println("")
         self.printer.println(".text")
@@ -46,14 +49,14 @@ class RiscvAsmEmitter(AsmEmitter):
     # transform tac instrs to RiscV instrs
     # collect some info which is saved in SubroutineInfo for SubroutineEmitter
     def selectInstr(self, func: TACFunc) -> tuple[list[str], SubroutineInfo]:
+        info = SubroutineInfo(func)
 
         selector: RiscvAsmEmitter.RiscvInstrSelector = (
-            RiscvAsmEmitter.RiscvInstrSelector(func.entry)
+            RiscvAsmEmitter.RiscvInstrSelector(func.entry, info)
         )
+
         for instr in func.getInstrSeq():
             instr.accept(selector)
-
-        info = SubroutineInfo(func)
 
         return (selector.seq, info)
 
@@ -66,8 +69,9 @@ class RiscvAsmEmitter(AsmEmitter):
         return self.printer.close()
 
     class RiscvInstrSelector(TACVisitor):
-        def __init__(self, entry: Label) -> None:
+        def __init__(self, entry: Label, info) -> None:
             self.entry = entry
+            self.ctx = info
             self.seq = []
 
         def visitAssign(self, instr: Assign) -> None:
@@ -138,7 +142,11 @@ class RiscvAsmEmitter(AsmEmitter):
             self.seq.append(Riscv.StoreWord(*instr.srcs, instr.offset))
 
         def visitLoadSymbolAddress(self, instr: LoadSymbolAddress) -> None:
-            self.seq.append(Riscv.LoadLabel(instr.dsts[0], instr.symbol.name))
+            if instr.symbol.isGlobal:
+                self.seq.append(Riscv.LoadLabel(instr.dsts[0], instr.symbol.name))
+            else:
+                assert isinstance(instr.symbol.type, ArrayType)
+                self.seq.append(Riscv.AddImm(Riscv.SP, instr.dsts[0], self.ctx.array_offsets[instr.symbol]))
 
         # in step11, you need to think about how to store the array 
 """
@@ -150,7 +158,7 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
         super().__init__(emitter, info)
         
         # + 4 is for the RA reg 
-        self.nextLocalOffset = 4 * len(Riscv.CalleeSaved) + 4
+        self.nextLocalOffset = 4 * len(Riscv.CalleeSaved) + 4 + self.info.localArraySize
         
         # the buf which stored all the NativeInstrs in this function
         self.buf: list[NativeInstr] = []
@@ -228,6 +236,9 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
         CALLEE END
         ...
         CALLEE BEGIN
+        LOCAL ARRAY BEGIN
+        ...
+        LOCAL ARRAY END
         ------------- SP
         """
 
@@ -236,11 +247,11 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
         for i in range(len(Riscv.CalleeSaved)):
             if Riscv.CalleeSaved[i].isUsed():
                 self.printer.printInstr(
-                    Riscv.NativeStoreWord(Riscv.CalleeSaved[i], Riscv.SP, 4 * i)
+                    Riscv.NativeStoreWord(Riscv.CalleeSaved[i], Riscv.SP, self.info.localArraySize + 4 * i)
                 )
         # store RA
         self.printer.printInstr(
-            Riscv.NativeStoreWord(Riscv.RA, Riscv.SP, 4 * len(Riscv.CalleeSaved))
+            Riscv.NativeStoreWord(Riscv.RA, Riscv.SP, self.info.localArraySize + 4 * len(Riscv.CalleeSaved))
         )
 
         self.printer.printComment("end of prologue")
@@ -277,13 +288,13 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
 
         # Restore RA
         self.printer.printInstr(
-            Riscv.NativeLoadWord(Riscv.RA, Riscv.SP, 4 * len(Riscv.CalleeSaved))
+            Riscv.NativeLoadWord(Riscv.RA, Riscv.SP, self.info.localArraySize + 4 * len(Riscv.CalleeSaved))
         )
 
         for i in range(len(Riscv.CalleeSaved)):
             if Riscv.CalleeSaved[i].isUsed():
                 self.printer.printInstr(
-                    Riscv.NativeLoadWord(Riscv.CalleeSaved[i], Riscv.SP, 4 * i)
+                    Riscv.NativeLoadWord(Riscv.CalleeSaved[i], Riscv.SP, self.info.localArraySize + 4 * i)
                 )
 
         self.printer.printInstr(Riscv.SPAdd(self.nextLocalOffset))
