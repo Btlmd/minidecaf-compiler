@@ -12,7 +12,10 @@ class SubroutineInfo:
     def __init__(self, func: TACFunc) -> None:
         self.funcLabel = func.entry
         self.argTemps = func.argTemps
+
+        # split different kinds of arrays
         self.localArrays = func.local_arrays
+        self.argArrays = {var: idx for var, idx in func.param_arrays}
 
         # stack space for all local arrays
         self.array_offsets: Dict[VarSymbol, int] = {}

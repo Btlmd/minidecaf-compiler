@@ -21,7 +21,7 @@ The namer phase: resolve all symbols defined in the abstract syntax tree and sto
 
 class Namer(Visitor[ScopeStack, None]):
     def __init__(self) -> None:
-        self.arr_symbols: List[VarSymbol] = []
+        self.arr_symbols = None
 
     # Entry of this phase
     def transform(self, program: Program) -> Program:
@@ -65,13 +65,19 @@ class Namer(Visitor[ScopeStack, None]):
         sym.define_function()
         with ctx.local():
             self.arr_symbols = []
-            for param in func.param_list:
+            param_arr_symbols = []
+            for idx, param in enumerate(func.param_list):
                 param.accept(self, ctx)
+                assert param.getattr('symbol')
+                if isinstance(param.getattr('type'), ArrayType):
+                    param_arr_symbols += [(param.getattr('symbol'), idx)]
             # Visit body statements.
             # Note that visit the block directly will generate a new scope
             for stmt in func.body.children:
                 stmt.accept(self, ctx)
             func.local_arrays = self.arr_symbols
+            func.param_arrays = param_arr_symbols
+            self.arr_symbols = None
 
     def visitBlock(self, block: Block, ctx: ScopeStack) -> None:
         with ctx.local():
@@ -156,17 +162,19 @@ class Namer(Visitor[ScopeStack, None]):
                 decl.ident.value,
                 ArrayType.multidim(
                     decl.var_t.type,
-                    *map(lambda x: x.value, decl.array_dim)
+                    *map(lambda x: x.value if x is not NULL else None, decl.array_dim)
                 )
             )
-            self.arr_symbols.append(var)
+            if not ctx.isGlobalScope() and not isinstance(decl, Parameter):
+                self.arr_symbols.append(var)
         if ctx.isGlobalScope():
             var.isGlobal = True
             if decl.init_expr is not NULL:
-                assert isinstance(decl.init_expr, IntLiteral)
+                assert isinstance(decl.init_expr, (IntLiteral, InitializerList))
                 var.initValue = decl.init_expr.value
         ctx.declare(var)
         decl.setattr('symbol', var)
+        decl.setattr('type', var.type)
         decl.ident.type = var.type
         if decl.init_expr is not NULL:
             decl.init_expr.accept(self, ctx)  # no problem. in global scope, decl.init_expr must be int literal

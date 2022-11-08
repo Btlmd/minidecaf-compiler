@@ -1,9 +1,11 @@
 import argparse
 import sys
+from copy import deepcopy
 
 from backend.asm import Asm
 from backend.reg.bruteregalloc import BruteRegAlloc
 from backend.riscv.riscvasmemitter import RiscvAsmEmitter
+from frontend.ast.lib_function import inject_func
 from frontend.ast.tree import Program
 from frontend.lexer import lexer
 from frontend.parser import parser
@@ -13,6 +15,7 @@ from frontend.typecheck.typer import Typer
 from utils.printtree import TreePrinter
 from utils.riscv import Riscv
 from utils.tac.tacprog import TACProg
+from functools import partial
 
 # Add random seed for reg spill
 import random
@@ -37,6 +40,7 @@ def readCode(fileName):
 def step_parse(args: argparse.Namespace):
     code = readCode(args.input)
     r: Program = parser.parse(code, lexer=lexer)
+    inject_func(r, "fill_n", partial(parser.parse, lexer=lexer))
 
     errors = parser.error_stack
     if errors:

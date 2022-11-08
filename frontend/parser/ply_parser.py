@@ -358,11 +358,11 @@ def p_subscription(p):
     """
     p[0] = Subscription(p[1], p[3])
 
-def p_array_dim_empty(p):
+def p_array_dim_single(p):
     """
-    array_dim_decl : empty
+    array_dim_decl : LSquBr Integer RSquBr
     """
-    p[0] = []
+    p[0] = [p[2]]
 
 def p_array_dim_component(p):
     """
@@ -376,6 +376,56 @@ def p_array_decl(p):
     declaration : type Identifier array_dim_decl
     """
     p[0] = Declaration(p[1], p[2], array_dim=p[3])
+
+def p_array_decl_init(p):
+    """
+    declaration : type Identifier array_dim_decl Assign initializer_list
+    """
+    p[0] = Declaration(p[1], p[2], p[5], array_dim=p[3])
+
+def p_array_dim_param_first_dim_empty(p):
+    """
+    array_dim_param : LSquBr RSquBr
+    """
+    p[0] = [NULL]
+
+def p_array_dim_param_first_dim_not_empty(p):
+    """
+    array_dim_param : LSquBr Integer RSquBr
+    """
+    p[0] = [p[2]]
+
+
+def p_array_dim_param_component(p):
+    """
+    array_dim_param : array_dim_param LSquBr Integer RSquBr
+    """
+    p[1].append(p[3])
+    p[0] = p[1]
+
+def p_array_param(p):
+    """
+    parameter : type Identifier array_dim_param
+    """
+    p[0] = [Parameter(p[1], p[2], array_dim=p[3])]
+
+def p_array_initializer_list_elem_single(p):
+    """
+    initializer_list_elems : Integer
+    """
+    p[0] = [p[1]]
+    
+def p_array_initializer_list_elem_component(p):
+    """
+    initializer_list_elems : initializer_list_elems Comma Integer
+    """
+    p[0] = p[1] + [p[3]]
+
+def p_array_initializer_list(p):
+    """
+    initializer_list : LBrace initializer_list_elems RBrace
+    """
+    p[0] = InitializerList(p[2])
 
 parser = yacc.yacc(start="program")
 parser.error_stack = error_stack  # type: ignore

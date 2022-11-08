@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, Tuple, Dict
 
+from frontend.ast.tree import Declaration, Function
 from frontend.symbol.varsymbol import VarSymbol
+from frontend.type import ArrayType
 from utils.label.funclabel import FuncLabel
 from utils.label.label import Label
 
@@ -14,11 +16,12 @@ from .temp import Temp
 
 
 class FuncVisitor:
-    def __init__(self, entry: FuncLabel, numArgs: int, local_arrays: List[VarSymbol], ctx: Context) -> None:
+    def __init__(self, entry: FuncLabel, numArgs: int, local_arrays: List[VarSymbol], param_arrays: List[Tuple[VarSymbol, int]], ctx: Context, lib_function: Dict[str, Function]) -> None:
         self.ctx = ctx
-        self.func = TACFunc(entry, numArgs, local_arrays)
+        self.func = TACFunc(entry, numArgs, local_arrays, param_arrays)
         self.visitLabel(entry)
         self.nextTempId = 0
+        self.lib_function = lib_function
 
         self.continueLabelStack = []
         self.breakLabelStack = []
@@ -42,8 +45,9 @@ class FuncVisitor:
         self.func.add(Assign(dst, src))
         return src
 
-    def visitLoad(self, value: Union[int, str]) -> Temp:
-        temp = self.freshTemp()
+    def visitLoad(self, value: Union[int, str], temp: Optional[Temp] = None) -> Temp:
+        if temp is None:
+            temp = self.freshTemp()
         if isinstance(value, int):
             self.func.add(LoadImm4(temp, value))
         else:

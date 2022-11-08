@@ -1,3 +1,5 @@
+from typing import List
+
 from utils.label.label import Label
 from utils.tac.nativeinstr import NativeInstr
 from utils.tac.tacinstr import TACInstr
@@ -37,3 +39,8 @@ class AsmCodePrinter:
 
     def printDATAWord(self, symbol: str, val: int):
         self.buffer += f"{self.INDENTS}.globl {symbol}\n{symbol}:\n{self.INDENTS}.word {val}\n\n"
+
+    def printDATAWords(self, symbol: str, vals: List[int]):
+        self.buffer += f"{self.INDENTS}.globl {symbol}\n{symbol}:\n"
+        for val in vals:
+            self.buffer += f"{self.INDENTS}.word {val}\n"

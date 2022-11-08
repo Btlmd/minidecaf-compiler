@@ -6,7 +6,7 @@ Modify this file if you want to add a new AST node.
 
 from __future__ import annotations
 
-from typing import Any, Generic, Optional, TypeVar, Union, List, Tuple
+from typing import Any, Generic, Optional, TypeVar, Union, List, Tuple, Dict
 
 from frontend.type import INT, DecafType
 from utils import T, U
@@ -53,6 +53,7 @@ class Program(ListNode["Function"]):
 
     def __init__(self, *children: Function) -> None:
         super().__init__("program", list(children))
+        self.lib_function: Dict[str, Function] = {}
 
     def functions(self) -> dict[str, Function]:
         return {func.ident.value: func for func in self if isinstance(func, Function)}
@@ -68,6 +69,10 @@ class Program(ListNode["Function"]):
 
     def accept(self, v: Visitor[T, U], ctx: T):
         return v.visitProgram(self, ctx)
+
+    def addLibFunction(self, lib_name: str, func: Function):
+        self.lib_function[lib_name] = func
+        self.children.insert(0, func)
 
     def __iadd__(self, other: List[Union[Function, Declaration]]):
         self.children += other
@@ -91,6 +96,7 @@ class Function(Node):
         self.body = body
         self.param_list = param_list
         self.local_arrays = None
+        self.param_arrays = None
 
     def __getitem__(self, key: int) -> Node:
         return (
@@ -235,10 +241,18 @@ class Declaration(Node):
         self.var_t = var_t
         self.ident = ident
         self.init_expr = init_expr or NULL
-        if array_dim is not None:
-            for dim_literal in array_dim:
-                if dim_literal.value <= 0:
-                    raise DecafBadArraySizeError()
+        if isinstance(self, Parameter):
+            if array_dim is not None:
+                for idx, dim_literal in enumerate(array_dim):
+                    if idx == 0 and dim_literal is NULL:
+                        continue
+                    if dim_literal.value <= 0:
+                        raise DecafBadArraySizeError()
+        else:
+            if array_dim is not None:
+                for dim_literal in array_dim:
+                    if dim_literal.value <= 0:
+                        raise DecafBadArraySizeError()
         self.array_dim = array_dim or NULL
 
     def __getitem__(self, key: int) -> Node:
@@ -251,8 +265,8 @@ class Declaration(Node):
         return v.visitDeclaration(self, ctx)
 
 class Parameter(Declaration):
-    def __init__(self, var_t: TypeLiteral, ident: Identifier):
-        super().__init__(var_t, ident)
+    def __init__(self, var_t: TypeLiteral, ident: Identifier, array_dim: Optional[List[IntLiteral]] = None):
+        super().__init__(var_t, ident, array_dim=array_dim)
         self.var_t = var_t
         self.ident = ident
 
@@ -544,3 +558,18 @@ class Subscription(Expression):
 
     def accept(self, v: Visitor[T, U], ctx: T) -> Optional[U]:
         return v.visitSubscription(self, ctx)
+
+class InitializerList(Node):
+    def __init__(self, initializer_list: List[IntLiteral]):
+        super().__init__("initializer_list")
+        self.initializer_list = initializer_list
+        self.value = [x.value for x in initializer_list]
+
+    def __len__(self):
+        return len(self.initializer_list)
+
+    def __getitem__(self, item):
+        return self.initializer_list[item]
+
+    def accept(self, v: Visitor[T, U], ctx: T) -> None:
+        pass

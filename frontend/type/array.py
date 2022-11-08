@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .builtin_type import INT
+from .builtin_type import INT, BuiltinType
 from .type import DecafType
 
 """
@@ -36,6 +36,12 @@ class ArrayType(DecafType):
     def size(self) -> int:
         "To get the full size of an array, e.g. size(int[2][3]) == 2 * 3 * WORD_SIZE."
         return self.length * self.base.size
+
+    @property
+    def element_count(self) -> int:
+        if not isinstance(self.base, ArrayType):
+            return self.length
+        return self.length * self.base.element_count
 
     @property
     def full_indexed(self) -> DecafType:

@@ -1,6 +1,6 @@
 from typing import Sequence, Tuple, Dict
 
-from frontend.ast.tree import Declaration, NULL
+from frontend.ast.tree import Declaration, NULL, IntLiteral, InitializerList
 from backend.asmemitter import AsmEmitter
 from frontend.symbol.varsymbol import VarSymbol
 from frontend.type import ArrayType
@@ -33,8 +33,16 @@ class RiscvAsmEmitter(AsmEmitter):
         # the start of the asm code
         # int step10, you need to add the declaration of global var here
         self.printer.println(".data")
-        for decl in filter(lambda x: x.init_expr is not NULL, globalDecls):
+        # Global int variable
+        for decl in filter(lambda x: isinstance(x.init_expr, IntLiteral), globalDecls):
             self.printer.printDATAWord(decl.ident.value, decl.init_expr.value)
+
+        # Global array variable
+        for decl in filter(lambda x: isinstance(x.init_expr, InitializerList), globalDecls):
+            self.printer.printDATAWords(
+                decl.ident.value,
+                decl.init_expr.value + [0] * decl.getattr('type').element_count
+            )
 
         self.printer.println("")
         self.printer.println(".bss")
@@ -69,7 +77,7 @@ class RiscvAsmEmitter(AsmEmitter):
         return self.printer.close()
 
     class RiscvInstrSelector(TACVisitor):
-        def __init__(self, entry: Label, info) -> None:
+        def __init__(self, entry: Label, info: SubroutineInfo) -> None:
             self.entry = entry
             self.ctx = info
             self.seq = []
@@ -142,11 +150,17 @@ class RiscvAsmEmitter(AsmEmitter):
             self.seq.append(Riscv.StoreWord(*instr.srcs, instr.offset))
 
         def visitLoadSymbolAddress(self, instr: LoadSymbolAddress) -> None:
-            if instr.symbol.isGlobal:
+            if instr.symbol.isGlobal:  # Global symbols use `la` directly
                 self.seq.append(Riscv.LoadLabel(instr.dsts[0], instr.symbol.name))
             else:
-                assert isinstance(instr.symbol.type, ArrayType)
-                self.seq.append(Riscv.AddImm(Riscv.SP, instr.dsts[0], self.ctx.array_offsets[instr.symbol]))
+                # print(self.ctx.argArrays)
+                assert isinstance(instr.symbol.type, ArrayType)  # Only ArrayType can invoke this instruction
+                if instr.symbol in self.ctx.localArrays:  # Arrays assigned in stack
+                    self.seq.append(Riscv.AddImm(Riscv.SP, instr.dsts[0], self.ctx.array_offsets[instr.symbol]))
+                elif instr.symbol in self.ctx.argArrays:  # Arrays passed from parameter
+                    self.seq.append(Riscv.Move(instr.dsts[0], self.ctx.argTemps[self.ctx.argArrays[instr.symbol]]))
+                else:
+                    raise ValueError(instr.symbol)
 
         # in step11, you need to think about how to store the array 
 """
@@ -219,7 +233,7 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
     def adjustSP(self, delta: int):
         self.sp_offset += delta
     
-    def emitEnd(self):
+    def emitEnd(self, comments: bool = False):
         self.printer.printComment("start of prologue")
         self.printer.printInstr(Riscv.SPAdd(-self.nextLocalOffset))
 
@@ -266,7 +280,8 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
         for instr in self.buf:
             # Print comment
             if isinstance(instr, str):
-                self.printer.printComment(instr)
+                if comments:
+                    self.printer.printComment(instr)
                 continue
 
             # Now the nextLocalOffset have been determined (considering possible spills)

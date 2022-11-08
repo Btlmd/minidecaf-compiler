@@ -222,7 +222,7 @@ class Call(TACInstr):
         return v.visitCall(self)
 
     def __str__(self) -> str:
-        return f"{self.dsts[0]} = CALL {self.label.name} ({self.srcs})"
+        return f"{self.dsts[0]} = CALL {self.label.name} ({', '.join([str(x) for x in self.srcs])})"
 
 
 class LoadSymbolAddress(TACInstr):

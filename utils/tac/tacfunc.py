@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict, Tuple
 
 from frontend.symbol.varsymbol import VarSymbol
 from utils.label.funclabel import FuncLabel
@@ -8,13 +8,14 @@ from .temp import Temp
 
 
 class TACFunc:
-    def __init__(self, entry: FuncLabel, numArgs: int, local_arrays: List[VarSymbol]) -> None:
+    def __init__(self, entry: FuncLabel, numArgs: int, local_arrays: List[VarSymbol], param_arrays: List[Tuple[VarSymbol, int]]) -> None:
         self.entry = entry
         self.numArgs = numArgs
         self.instrSeq = []
         self.tempUsed = 0
         self.argTemps: List[Temp] = []
         self.local_arrays = local_arrays
+        self.param_arrays = param_arrays
 
     def addArgTemp(self, temp: Temp) -> None:
         self.argTemps += [temp]

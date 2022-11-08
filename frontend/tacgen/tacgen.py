@@ -26,12 +26,15 @@ class TACGen(Visitor[FuncVisitor, None]):
         pw = ProgramWriter(
             program.functions().values(),
             program.globalDecls().values(),
+            program.lib_function,
         )
+
+
 
         for name, func in program.functions().items():
             if func.body is NULL:
                 continue
-            mv = pw.visitFunc(name, len(func.param_list), func.local_arrays)
+            mv = pw.visitFunc(name, len(func.param_list), func.local_arrays, func.param_arrays)
             func.accept(self, mv)
             mv.visitEnd()
 
@@ -81,8 +84,27 @@ class TACGen(Visitor[FuncVisitor, None]):
         temp = mv.freshTemp()
         sym.temp = temp
         if decl.init_expr is not NULL:
-            decl.init_expr.accept(self, mv)
-            mv.visitAssignment(temp, decl.init_expr.getattr('val'))
+            if isinstance(decl.init_expr, InitializerList):
+                # Call `fill_n` to clear array if not all element are defined in initializer list
+                addr = mv.visitLoadSymbolAddress(sym)
+                value_temp = mv.visitLoad(0)
+                dummy = mv.freshTemp()
+                if len(decl.init_expr.value) < sym.type.element_count:
+                    const_temp = mv.visitLoad(sym.type.size)
+                    mv.visitCall(
+                        mv.ctx.getFuncLabel(mv.lib_function["fill_n"].ident.value),
+                        dummy,  # dummy, store return value
+                        [addr, value_temp, const_temp]
+                    )
+                # Initialize elements specified in initializer list
+                const_temp = mv.visitLoad(sym.type.full_indexed.size)
+                for val in decl.init_expr.value:
+                    mv.visitLoad(val, value_temp)
+                    mv.visitStoreToAddress(value_temp, addr)
+                    mv.visitBinarySelf(tacop.BinaryOp.ADD, addr, const_temp)
+            else:
+                decl.init_expr.accept(self, mv)
+                mv.visitAssignment(temp, decl.init_expr.getattr('val'))
         return temp
 
     def visitAssignment(self, expr: Assignment, mv: FuncVisitor) -> None:
@@ -276,8 +298,13 @@ class TACGen(Visitor[FuncVisitor, None]):
         param_temp = []
         for arg_expr in call.arg_list:
             arg_expr.accept(self, mv)
-            assert arg_expr.getattr('val')
-            param_temp += [arg_expr.getattr('val')]
+            if isinstance(arg_expr.getattr('type'), ArrayType):
+                assert arg_expr.getattr('addr')
+                param_temp += [arg_expr.getattr('addr')]
+            else:
+                assert isinstance(arg_expr.getattr('type'), BuiltinType)
+                assert arg_expr.getattr('val')
+                param_temp += [arg_expr.getattr('val')]
 
         # Assign Return Value
         ret = mv.freshTemp()
