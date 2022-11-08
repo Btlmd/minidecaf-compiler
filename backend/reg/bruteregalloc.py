@@ -32,8 +32,6 @@ class BruteRegAlloc(RegAlloc):
     def __init__(self, emitter: RiscvAsmEmitter) -> None:
         super().__init__(emitter)
         self.bindings = {}
-        self.paramsBound = False
-        self.preScan = False
 
     def clearUsed(self):
         for reg in self.emitter.allocatableRegs:  # init for each subroutine
@@ -44,11 +42,9 @@ class BruteRegAlloc(RegAlloc):
         self.clearUsed()
 
         # bind (actually stash) A0 ~ A7
-        # other args are marked in `RiscvSubroutineEmitter.offsets`
-        if not self.paramsBound:
-            self.paramsBound = True
-            for temp, reg in zip(subEmitter.info.argTemps, Riscv.ArgRegs):
-                self.bind(temp, reg)
+        # other args are marked in `RiscvSubroutineEmitter.argOffset`
+        for temp, reg in zip(subEmitter.info.argTemps, Riscv.ArgRegs):
+            self.bind(temp, reg)
         if len(graph) > 0:
             for tempindex in graph.nodes[0].liveIn:
                 if tempindex in self.bindings:

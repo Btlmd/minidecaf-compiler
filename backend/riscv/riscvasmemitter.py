@@ -188,7 +188,7 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
     # in step9, you need to think about the function parameters here
     def emitLoadFromStack(self, dst: Reg, src: Temp):
         if src.index not in self.offsets:
-            if src in self.info.argTemps:
+            if src in self.info.argTemps[8:]:
                 offset = self.argOffset[src.index] - self.sp_offset
                 self.buf.append(
                     Riscv.NativeLoadWord(dst, Riscv.SP, offset , src)
