@@ -181,6 +181,7 @@ class Namer(Visitor[ScopeStack, None]):
 
     def visitUnary(self, expr: Unary, ctx: ScopeStack) -> None:
         expr.operand.accept(self, ctx)
+        expr.setattr('type', INT)  # all legal unary operation returns `int`
 
     def visitBinary(self, expr: Binary, ctx: ScopeStack) -> None:
         expr.lhs.accept(self, ctx)
