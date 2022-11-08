@@ -149,7 +149,7 @@ class Namer(Visitor[ScopeStack, None]):
         """
         if ctx.findConflict(decl.ident.value) is not None:
             raise DecafDeclConflictError(decl.ident.value)
-        if decl.array_dim is None:
+        if decl.array_dim is NULL:
             var = VarSymbol(decl.ident.value, decl.var_t.type)
         else:
             var = VarSymbol(
