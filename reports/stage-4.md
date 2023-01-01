@@ -10,13 +10,13 @@ git diff stage-3 stage-4
 
 <img src="C:\Users\joshu\AppData\Roaming\Typora\typora-user-images\image-20221103211226136.png" alt="image-20221103211226136" style="zoom: 33%;" />
 
-（几乎把所有文件都改了一遍……
+（可能几乎把所有文件都改了一遍……
 
 ## Step-9 函数
 
 ### 增加语法树节点
 
-修改 `frontend.ast.tree` 。定义函数节点 `Function` ， 参数节点 `Parameter` 和 调用节点 `Call` ，记录解析到的语法信息
+修改 `frontend.ast.tree` 。定义函数节点 `Function` ， 参数节点 `Parameter` 和 调用节点 `Call` ，记录解析到的语义信息
 
 ```python
 class Function(Node):
@@ -214,7 +214,9 @@ def visitProgram(self, program: Program, ctx: ScopeStack) -> None:
                 stmt.accept(self, ctx)
 ```
 
-同时实现了访问 `Call ` 节点。
+
+
+同时，实现了访问 `Call ` 节点。
 
 - 检查函数符号是否已经定义
 - 检查参数个数是否相同（因为 miniDecaf 只有一种类型）
@@ -285,10 +287,12 @@ for name, func in program.functions().items():
   - 访问其所有参数，然后访问 `body`
 - 参数
   - 首先使用 `visitDeclaration` 分配相应的临时变量
-  - 然后将该临时变量绑定到函数上，便于后续分配寄存器时使用
+  - 然后将该临时变量绑定到函数上，便于后续传参时使用
 - 函数调用
   - 遍历所有参数，为参数求值
   - 分配一个储存返回值的临时变量
+
+具体实现如下
 
 ```python
 def visitFunction(self, func: Function, mv: FuncVisitor) -> None:
@@ -516,3 +520,224 @@ CALLEE SAVE BEGIN
 
 ## Step-10 全局变量
 
+这一节要支持全局变量，主要工作是在变量读取和赋值时进行判断，如果是全局变量则需要从内存中加载值 / 将值写回内存；此外还需要进行文法的支持和相关汇编代码的生成。
+
+### 修改文法
+
+全局变量的解析文法在上一节中已经实现。
+
+### 符号解析
+
+在 `frontend/typecheck/namer.py` 中
+
+- `visitDeclaration` 时，增加一条新规则，如果此时是 `GlobalScope`，则将 `VarSymbol` 的 `isGlobal` 置为 `True`；如果有返回值，一并放入 `VarSymbol`
+
+  ```python
+      def visitDeclaration(self, decl: Declaration, ctx: ScopeStack) -> None:
+          ...
+          if ctx.isGlobalScope():
+              var.isGlobal = True
+              if decl.init_expr is not NULL:
+                  assert isinstance(decl.init_expr, IntLiteral)
+                  var.initValue = decl.init_expr.value
+          ...
+  ```
+
+### 生成 TAC
+
+#### 保存全局变量信息
+
+这时 ProgramWriter 不仅需要存储函数信息，还需要存储全局变量的名称和初值（如果有）
+
+```python
+class ProgramWriter:
+    def __init__(
+        self, funcs: List[Function], 
+        globalDecls: List[Tuple[str, Optional[int]]]
+    ) -> None:
+        ...
+        self.globalDecls = globalDecls
+```
+
+`TACProg ` 也进行类似的修改。
+
+而这些信息则在 `TACGen.transform` 中给出
+
+```python
+class TACGen(Visitor[FuncVisitor, None]):
+    ...
+    def transform(self, program: Program) -> TACProg:
+        ...
+        pw = ProgramWriter(
+            program.functions().values(),
+            [
+                (name, decl.getattr('symbol').initValue)
+                for name, decl in program.globalDecls().items()
+            ]
+        )
+```
+
+#### 全局变量地址的加载
+
+对于全局变量来说，每次使用时不能直接从寄存器中取用，而是需要从全局变量的地址进行加载。因此新增以下三条 TAC 指令
+
+```python
+class LoadSymbolAddress(TACInstr):
+    '''
+    Load the address of `global_sym` to variable `dst`, similar to `la` in RISC-V
+    '''
+    def __init__(self, global_sym, dst: Temp):
+        super(LoadSymbolAddress, self).__init__(InstrKind.SEQ, [dst], [])
+        self.symbol = global_sym
+
+class LoadWord(TACInstr):
+    '''
+    Load the word in `base` + `offset` to `dst` , similar to `lw` in RISC-V
+    '''
+    def __init__(self, dst: Temp, base: Temp, offset: int):
+        super(LoadWord, self).__init__(InstrKind.SEQ, [dst], [base])
+        self.offset = offset
+
+class StoreWord(TACInstr):  
+    '''
+    Store variable `src` to `base` + `offset`, similar to `sw` in RISC-V
+    '''
+    def __init__(self, src: Temp, base: Temp, offset: int):
+        super(StoreWord, self).__init__(InstrKind.SEQ, [], [src, base])
+        self.offset = offset
+```
+
+而在 FunctionVisitor 中也新增类似的访问（生成）方法
+
+```python
+    def visitLoadGlobal(self, global_sym: VarSymbol) -> Temp:
+        '''
+        Get a variable that stores the value of `global_sym`
+        '''
+        dst = self.freshTemp()
+        self.func.add(LoadSymbolAddress(global_sym, dst))
+        self.func.add(LoadWord(dst, dst, 0))  # reuse `dst`
+        return dst
+
+    def visitStoreGlobal(self, global_sym: VarSymbol, src: Temp) -> None:
+        '''
+        Store the value in `src` to `global_sym`
+        '''
+        dst = self.freshTemp()
+        self.func.add(LoadSymbolAddress(global_sym, dst))
+        self.func.add(StoreWord(src, dst, 0))
+```
+
+#### 生成 TAC 序列
+
+在有了 `FuncVisitor` 中的工具函数后，生成 TAC 序列的任务就很简单了。										
+
+- `visitIdentifier` 如果遇到全局变量，则调用前述的 `FuncVisitor.visitLoadGlobal` 获得该全局变量的值。
+- `visitAssignment` 如果遇到全局变量，则调用前述的 `FuncVisitor.visitStoreGlobal` 将左操作数中的值保存到全局变量对应的地址中。
+
+### 生成 RISC-V 汇编
+
+- 首先在 `.data` 段和 `.bss` 段分别声明初始化的和未初始化的全局变量
+
+    ```python
+    class RiscvAsmEmitter(AsmEmitter):
+        def __init__(
+            self,
+            allocatableRegs: list[Reg],
+            callerSaveRegs: list[Reg],
+            globalDecls: List[Tuple[str, Optional[int]]]
+        ) -> None:
+            ...
+            self.printer.println(".data")  # place initalized global var in .data
+            for name, initial_val in filter(lambda x: x[1], globalDecls):
+                self.printer.printDATAWord(name, initial_val)
+
+            self.printer.println("")
+            self.printer.println(".bss")  # place uninitalized global var in .bss
+            for name, _ in filter(lambda x: not x[1], globalDecls):
+                self.printer.printBSS(name, 4)
+
+            self.printer.println("")
+    ```
+
+- 同时也在 `utils/riscv.py` 实现之前添加的三条 TAC 指令，并在 `RiscvAsmEmitter.RiscvInstrSelector` 中添加相应的访问函数。具体来说，`LoadSymbolAddress` ，`LoadWord`，`StoreWord` 分别翻译为 `la` ，`lw` ，`sw` 。
+
+
+
+这就实现了全局变量支持。此外还创建了一些工具函数，这里就不逐一列举了。
+
+
+
+## 思考题
+
+### Step-9 函数
+
+1. MiniDecaf 的函数调用时参数求值的顺序是未定义行为。试写出一段 MiniDecaf 代码，使得不同的参数求值顺序会导致不同的返回结果。
+
+   ```c
+   // function definition
+   int foo(int a, int b) { 
+       return a - b;
+   }
+   
+   int main() {
+       int bar = 0;
+       return foo(bar, bar = bar + 1);  // function call
+   }
+   ```
+
+   对于 `foo(bar, bar = bar + 1)` 这一函数调用，若从右向左求值，则等价于
+
+   ```c
+   foo(1, 1);
+   ```
+
+   若从左向右求值，则等价于
+
+   ```c
+   foo(0, 1);
+   ```
+
+   此时，不同的求值顺序有不同的返回结果。
+
+   
+
+2. 为何 RISC-V 标准调用约定中要引入 callee-saved 和 caller-saved 两类寄存器，而不是要求所有寄存器完全由 caller/callee 中的一方保存？为何保存返回地址的 ra 寄存器是 caller-saved 寄存器？
+
+   - 为何不是所有寄存器完全由 caller/callee 中的一方保存？
+     - 如果所有寄存器都为 caller-saved，那么 caller 就必须保存所有使用到的通用寄存器，然而被 callee 使用的可能只是其中的一小部分，全部保存则每次函数调用的开销过大。编译器可以选择将一些在函数调用后还需使用的值存入 callee-saved ，这时如果 callee 使用的寄存器较少，callee 就可以避免使用 callee-saved 寄存器，从而避免了一些不必要的保存与恢复
+     - 为何不全部采用 callee-saved？
+       - 如果全部采用 callee-saved，返回值将无法通过通用寄存器传递（因为这会在函数调用前后修改返回值寄存器的值）
+       - 某些寄存器在函数调用过程中会被修改，因此无法由 callee save ，如 `ra`
+       - 一些寄存器的值本身就是为函数调用准备的，在函数调用后可以直接丢弃，而并不需要在调用后恢复。将这些值存入 caller-saved 寄存器再进行函数调用，就可以节约一些不必要的保存与恢复。例如传参时使用的 `a0~a7` 就是 caller-saved 寄存器。
+     - 由此可见，引入 callee-saved 和 caller-saved 两类寄存器是一种较为高效和方便的选择。
+     
+   - 为何保存返回地址的 ra 寄存器是 caller-saved 寄存器？
+     - 在调用函数时，函数调用的返回地址被同时保存到 `ra`， 因此在进入被调用函数后，`ra` 的值已经被修改，被调用者无法保存一个已经在调用过程中被修改的值。
+
+
+
+### Step-10 全局变量
+
+1. 写出 `la v0, a` 这一 RiscV 伪指令可能会被转换成哪些 RiscV 指令的组合（说出两种可能即可）。
+
+   1. 可转换为
+
+      ```assembly
+      auipc v0, delta[31:12]
+      addi v0, v0, delta[11:0]
+      ```
+   
+      其中 `delta` 表示符号 `a` 的地址相对当前指令地址的偏移量。
+   
+      **这种方法在第 11 位为 1 时需要给高 20 位 + 1 以补偿 `addi` 对立即数的符号扩展。**
+   
+   2. 也可以用 `gp` 寄存器确定 `a` 的地址。例如，假设 `a` 的地址与 `gp` 值的差可以被立即数偏移表达，那么可转换为
+   
+      ```assembly
+      addi v0, gp, delta_gp
+      ```
+   
+      其中 `delta_gp` 表示符号 `a` 的地址相对 `gp` 值的偏移量。
+   
+      
