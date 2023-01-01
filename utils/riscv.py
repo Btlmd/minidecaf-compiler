@@ -204,16 +204,6 @@ class Riscv:
                 str(self.dsts[0]), self.symbol_str
             )
 
-    class LoadLocalArray(TACInstr):
-        def __init__(self, dst: Temp, symbol: VarSymbol) -> None:
-            super().__init__(InstrKind.SEQ, [dst], [])
-            self.symbol = symbol
-
-        def __str__(self) -> str:
-            return "LoadLocalArray " + Riscv.FMT2.format(
-                str(self.dsts[0]), self.symbol.name
-            )
-
     class AddImm(TACInstr):
         def __init__(self, src: Temp, dst: Temp, imm: int):
             super().__init__(InstrKind.SEQ, [dst], [src])

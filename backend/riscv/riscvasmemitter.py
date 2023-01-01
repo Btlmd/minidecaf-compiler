@@ -41,7 +41,7 @@ class RiscvAsmEmitter(AsmEmitter):
         for decl in filter(lambda x: isinstance(x.init_expr, InitializerList), globalDecls):
             self.printer.printDATAWords(
                 decl.ident.value,
-                decl.init_expr.value + [0] * decl.getattr('type').element_count
+                decl.init_expr.value + [0] * (decl.getattr('type').element_count - len(decl.init_expr.value))
             )
 
         self.printer.println("")
